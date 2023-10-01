@@ -3,14 +3,92 @@
 #include <Utils.h>
 #include <fstream>
 #include <vector>
+#include <glm/glm.hpp>
 
 #define WIDTH 320
 #define HEIGHT 240
 
+std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
+	std::vector<float> v;
+	float tmp = to - from;
+	int num = numberOfValues - 1;
+	int numtmp = numberOfValues - 2;
+	float increment = tmp / num;
+	v.push_back(from);
+	for(int i = 0; i < numtmp; i++) {
+		from = from + increment;
+		v.push_back(from);
+	}
+	v.push_back(to);
+	return v;
+}
+
+std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 to, int numberOfValues) {
+	/*--------------------*/
+	// std::vector<glm::vec3> v;
+	// int num = numberOfValues - 1;
+	// int numtmp = numberOfValues - 2;
+	// v.push_back(from);
+	// for(int i = 0; i < numtmp; i++) {
+	// 	if(from.x > to.x) {
+	// 		float tmpFirst = from.x - to.x;
+	// 		float decreFirst = tmpFirst / num;
+	// 		from.x = from.x - decreFirst;
+	// 	} else if(from.x < to.x) {
+	// 		float tmpSecond = to.x - from.x;
+	// 		float increSecond = tmpSecond / num;
+	// 		from.x = from.x + increSecond;
+	// 	} else {
+	// 		from.x = from.x;
+	// 	}
+	// 	if(from.y > to.y) {
+	// 		float tmpThird = from.y - to.y;
+	// 		float decreThird = tmpThird / num;
+	// 		from.y = from.y - decreThird;
+	// 	} else if(from.y < to.y) {
+	// 		float tmpFourth = to.y - from.y;
+	// 		float increFourth = tmpFourth / num;
+	// 		from.y = from.y + increFourth;
+	// 	} else {
+	// 		from.y = from.y;
+	// 	}
+	// 	if(from.z > to.z) {
+	// 		float tmpFifth = from.z - to.z;
+	// 		float decreFifth = tmpFifth / num;
+	// 		from.z = from.z - decreFifth;
+	// 	} else if(from.z < to.z) {
+	// 		float tmpSixth = to.z - from.z;
+	// 		float increSixth = tmpSixth / num;
+	// 		from.z = from.z + increSixth;
+	// 	} else {
+	// 		from.z = from.z;
+	// 	}
+	// 	v.push_back(from);
+	// }
+	// v.push_back(to);
+	// return v;
+	/*--------------------*/
+	std::vector<glm::vec3> v;
+	std::vector<float> resultX;
+	std::vector<float> resultY;
+	std::vector<float> resultZ;
+	resultX = interpolateSingleFloats(from.x, to.x, numberOfValues);
+	resultY = interpolateSingleFloats(from.y, to.y, numberOfValues);
+	resultZ = interpolateSingleFloats(from.z, to.z, numberOfValues);
+	for(int i = 0; i < numberOfValues; i++) {
+		glm::vec3 tmpA;
+		tmpA.x = resultX[i];
+		tmpA.y = resultY[i];
+		tmpA.z = resultZ[i];
+		v.push_back(tmpA);
+	} 
+	return v;
+}
+
 void draw(DrawingWindow &window) {
 	window.clearPixels();
-	float startColour = 255; // white colour
-	float endColour = 0; // black colour
+	// float startColour = 255; // white colour
+	// float endColour = 0; // black colour
 	for (size_t y = 0; y < window.height; y++) {
 		for (size_t x = 0; x < window.width; x++) {
 			/*--------------------*/
@@ -20,9 +98,18 @@ void draw(DrawingWindow &window) {
 			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			// window.setPixelColour(x, y, colour);
 			/*--------------------*/
-			float red = (startColour + (endColour - startColour) * x / WIDTH);
-			float green = (startColour + (endColour - startColour) * x / WIDTH);
-			float blue = (startColour + (endColour - startColour) * x / WIDTH);
+			// float red = (startColour + (endColour - startColour) * x / WIDTH);
+			// float green = (startColour + (endColour - startColour) * x / WIDTH);
+			// float blue = (startColour + (endColour - startColour) * x / WIDTH);
+			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
+			// window.setPixelColour(x, y, colour);
+			/*--------------------*/
+			std::vector<float> resultFor;
+			resultFor = interpolateSingleFloats(255, 0, WIDTH); // split from white to black for a whole window
+			// iterate from strat index to end index
+			float red = resultFor[x];
+			float green = resultFor[x];
+			float blue = resultFor[x];
 			uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			window.setPixelColour(x, y, colour);
 		}
@@ -41,21 +128,6 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 	}
 }
 
-std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
-	std::vector<float> v;
-	float tmp = to - from;
-	int num = numberOfValues - 1;
-	int numtmp = numberOfValues - 2;
-	float increment = tmp / num;
-	v.push_back(from);
-	for(int i = 0; i < numtmp; i++) {
-		from = from + increment;
-		v.push_back(from);
-	}
-	v.push_back(to);
-	return v;
-}
-
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
@@ -64,6 +136,12 @@ int main(int argc, char *argv[]) {
 	result = interpolateSingleFloats(2.2, 8.5, 7);
 	for(size_t i=0; i<result.size(); i++) std::cout << result[i] << " ";
 	std::cout << std::endl;
+	/*--------------------*/
+	glm::vec3 from(1.0, 4.0, 9.2);
+	glm::vec3 to(4.0, 1.0, 9.8);
+	std::vector<glm::vec3> newResult;
+	newResult = interpolateThreeElementValues(from, to, 4);
+	for(size_t i=0; i<newResult.size(); i++) std::cout << "(" << newResult[i].x << ", " << newResult[i].y << ", " << newResult[i].z << ")" << std::endl;
 	/*--------------------*/
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
