@@ -10,13 +10,13 @@
 
 std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
 	std::vector<float> v;
-	float tmp = to - from;
+	float tmp = to - from; // tmp could be positive or negative
 	int num = numberOfValues - 1;
-	int numtmp = numberOfValues - 2;
-	float increment = tmp / num;
+	int numtmp = numberOfValues - 2; // from and to have been pushed back to v
+	float arithmetic = tmp / num;
 	v.push_back(from);
 	for(int i = 0; i < numtmp; i++) {
-		from = from + increment;
+		from = from + arithmetic; // from + positive/negative number
 		v.push_back(from);
 	}
 	v.push_back(to);
@@ -87,29 +87,50 @@ std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 t
 
 void draw(DrawingWindow &window) {
 	window.clearPixels();
+	// Black & White
 	// float startColour = 255; // white colour
 	// float endColour = 0; // black colour
+	// Colour
+	glm::vec3 topLeft(255, 0, 0);        // red 
+	glm::vec3 topRight(0, 0, 255);       // blue 
+	glm::vec3 bottomRight(0, 255, 0);    // green 
+	glm::vec3 bottomLeft(255, 255, 0);   // yellow
+	std::vector<glm::vec3> rightColumn;
+	std::vector<glm::vec3> leftColumn;
+	rightColumn = interpolateThreeElementValues(topLeft, bottomLeft, HEIGHT);
+	leftColumn = interpolateThreeElementValues(topRight, bottomRight, HEIGHT);
 	for (size_t y = 0; y < window.height; y++) {
+		std::vector<glm::vec3> rowVector;
+		rowVector = interpolateThreeElementValues(rightColumn[y], leftColumn[y], WIDTH);
 		for (size_t x = 0; x < window.width; x++) {
 			/*--------------------*/
+			// RedNoise
 			// float red = rand() % 256;
 			// float green = 0.0;
 			// float blue = 0.0;
 			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			// window.setPixelColour(x, y, colour);
 			/*--------------------*/
+			// Greyscale
 			// float red = (startColour + (endColour - startColour) * x / WIDTH);
 			// float green = (startColour + (endColour - startColour) * x / WIDTH);
 			// float blue = (startColour + (endColour - startColour) * x / WIDTH);
 			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			// window.setPixelColour(x, y, colour);
 			/*--------------------*/
-			std::vector<float> resultFor;
-			resultFor = interpolateSingleFloats(255, 0, WIDTH); // split from white to black for a whole window
-			// iterate from strat index to end index
-			float red = resultFor[x];
-			float green = resultFor[x];
-			float blue = resultFor[x];
+			// Greyscale
+			// std::vector<float> resultFor;
+			// resultFor = interpolateSingleFloats(255, 0, WIDTH); // split from white to black for a whole window
+			// // iterate from strat index to end index
+			// float red = resultFor[x];
+			// float green = resultFor[x];
+			// float blue = resultFor[x];
+			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
+			// window.setPixelColour(x, y, colour);
+			/*--------------------*/
+			float red = rowVector[x].x;
+			float green = rowVector[x].y;
+			float blue = rowVector[x].z;
 			uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			window.setPixelColour(x, y, colour);
 		}
