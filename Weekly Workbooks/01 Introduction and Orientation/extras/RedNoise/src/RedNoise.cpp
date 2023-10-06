@@ -4,9 +4,16 @@
 #include <fstream>
 #include <vector>
 #include <glm/glm.hpp>
+#include <CanvasPoint.h>
+#include <Colour.h>
 
 #define WIDTH 320
 #define HEIGHT 240
+
+/*
+(0, 0)   (320, 0)
+(0, 240) (320, 240)
+*/
 
 std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
 	std::vector<float> v;
@@ -15,7 +22,7 @@ std::vector<float> interpolateSingleFloats(float from, float to, int numberOfVal
 	int numtmp = numberOfValues - 2; // from and to have been pushed back to v
 	float arithmetic = tmp / num;
 	v.push_back(from);
-	for(int i = 0; i < numtmp; i++) {
+	for (int i = 0; i < numtmp; i++) {
 		from = from + arithmetic; // from + positive/negative number
 		v.push_back(from);
 	}
@@ -75,7 +82,7 @@ std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 t
 	resultX = interpolateSingleFloats(from.x, to.x, numberOfValues);
 	resultY = interpolateSingleFloats(from.y, to.y, numberOfValues);
 	resultZ = interpolateSingleFloats(from.z, to.z, numberOfValues);
-	for(int i = 0; i < numberOfValues; i++) {
+	for (int i = 0; i < numberOfValues; i++) {
 		glm::vec3 tmpA;
 		tmpA.x = resultX[i];
 		tmpA.y = resultY[i];
@@ -85,23 +92,50 @@ std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 t
 	return v;
 }
 
+void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour c) {
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
+	float xStepSize = xDiff / numberOfSteps;
+	float yStepSize = yDiff / numberOfSteps;
+	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue;
+	// uint32_t colour = (255 << 24) + (255 << 16) + (255 << 8) + 255; // White colour line
+	for (float i = 0.0; i < numberOfSteps; i++) {
+		float x = from.x + (xStepSize * i);
+		float y = from.y + (yStepSize * i);
+		window.setPixelColour(x, y, colour);
+	}
+}
+
+void strokedTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c) {
+	c.red = rand() % 256;
+	c.green = rand() % 256;
+	c.blue = rand() % 256;
+	drawLine(window, triangle.v0(), triangle.v1(), c);
+	drawLine(window, triangle.v1(), triangle.v2(), c);
+	drawLine(window, triangle.v2(), triangle.v0(), c);
+}
+
 void draw(DrawingWindow &window) {
 	window.clearPixels();
 	// Black & White
+	/*--------------------*/
 	// float startColour = 255; // white colour
 	// float endColour = 0; // black colour
+	/*--------------------*/
 	// Colour
-	glm::vec3 topLeft(255, 0, 0);        // red 
-	glm::vec3 topRight(0, 0, 255);       // blue 
-	glm::vec3 bottomRight(0, 255, 0);    // green 
-	glm::vec3 bottomLeft(255, 255, 0);   // yellow
-	std::vector<glm::vec3> rightColumn;
-	std::vector<glm::vec3> leftColumn;
-	rightColumn = interpolateThreeElementValues(topLeft, bottomLeft, HEIGHT);
-	leftColumn = interpolateThreeElementValues(topRight, bottomRight, HEIGHT);
+	// glm::vec3 topLeft(255, 0, 0);        // red 
+	// glm::vec3 topRight(0, 0, 255);       // blue 
+	// glm::vec3 bottomRight(0, 255, 0);    // green 
+	// glm::vec3 bottomLeft(255, 255, 0);   // yellow
+	// std::vector<glm::vec3> rightColumn;
+	// std::vector<glm::vec3> leftColumn;
+	// rightColumn = interpolateThreeElementValues(topLeft, bottomLeft, HEIGHT);
+	// leftColumn = interpolateThreeElementValues(topRight, bottomRight, HEIGHT);
 	for (size_t y = 0; y < window.height; y++) {
-		std::vector<glm::vec3> rowVector;
-		rowVector = interpolateThreeElementValues(rightColumn[y], leftColumn[y], WIDTH);
+		// Colour
+		// std::vector<glm::vec3> rowVector;
+		// rowVector = interpolateThreeElementValues(rightColumn[y], leftColumn[y], WIDTH);
 		for (size_t x = 0; x < window.width; x++) {
 			/*--------------------*/
 			// RedNoise
@@ -128,9 +162,17 @@ void draw(DrawingWindow &window) {
 			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			// window.setPixelColour(x, y, colour);
 			/*--------------------*/
-			float red = rowVector[x].x;
-			float green = rowVector[x].y;
-			float blue = rowVector[x].z;
+			// Colour
+			// float red = rowVector[x].x;
+			// float green = rowVector[x].y;
+			// float blue = rowVector[x].z;
+			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
+			// window.setPixelColour(x, y, colour);
+			/*--------------------*/
+			// Test Background
+			float red = 0.0;
+			float green = 0.0;
+			float blue = 0.0;
 			uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			window.setPixelColour(x, y, colour);
 		}
@@ -143,6 +185,24 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
+		else if (event.key.keysym.sym == SDLK_u) { // Draw random triangle
+			std::cout << "u" << "/" << "U" << std::endl;
+			CanvasTriangle triangle;
+			Colour c;
+			for (int i = 0; i < 3; i++) {
+				if (i == 2) {
+					triangle.v2().x = rand() % WIDTH;
+					triangle.v2().y = rand() % HEIGHT;
+				} else if (i == 1) {
+					triangle.v1().x = rand() % WIDTH;
+					triangle.v1().y = rand() % HEIGHT;
+				} else { // i == 0
+					triangle.v0().x = rand() % WIDTH;
+					triangle.v0().y = rand() % HEIGHT;
+				}
+			}
+			strokedTriangle(window, triangle, c);
+		}
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		window.savePPM("output.ppm");
 		window.saveBMP("output.bmp");
@@ -153,21 +213,46 @@ int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
 	/*--------------------*/
-	std::vector<float> result;
-	result = interpolateSingleFloats(2.2, 8.5, 7);
-	for(size_t i=0; i<result.size(); i++) std::cout << result[i] << " ";
-	std::cout << std::endl;
+	// Colour co;
+	// CanvasPoint fromF;
+	// CanvasPoint toF;
+	// fromF.x = 0;
+	// fromF.y = 0;
+	// toF.x = WIDTH / 2;
+	// toF.y = HEIGHT / 2;
+	// CanvasPoint fromS;
+	// CanvasPoint toS;
+	// fromS.x = WIDTH / 2;
+	// fromS.y = HEIGHT / 2;
+	// toS.x = WIDTH;
+	// toS.y = 0;
+	// CanvasPoint fromT;
+	// CanvasPoint toT;
+	// fromT.x = WIDTH / 2;
+	// fromT.y = 0;
+	// toT.x = WIDTH / 2;
+	// toT.y = HEIGHT;
 	/*--------------------*/
-	glm::vec3 from(1.0, 4.0, 9.2);
-	glm::vec3 to(4.0, 1.0, 9.8);
-	std::vector<glm::vec3> newResult;
-	newResult = interpolateThreeElementValues(from, to, 4);
-	for(size_t i=0; i<newResult.size(); i++) std::cout << "(" << newResult[i].x << ", " << newResult[i].y << ", " << newResult[i].z << ")" << std::endl;
+	// std::vector<float> result;
+	// result = interpolateSingleFloats(2.2, 8.5, 7);
+	// for (size_t i=0; i<result.size(); i++) std::cout << result[i] << " ";
+	// std::cout << std::endl;
 	/*--------------------*/
+	// glm::vec3 from(1.0, 4.0, 9.2);
+	// glm::vec3 to(4.0, 1.0, 9.8);
+	// std::vector<glm::vec3> newResult;
+	// newResult = interpolateThreeElementValues(from, to, 4);
+	// for (size_t i=0; i<newResult.size(); i++) std::cout << "(" << newResult[i].x << ", " << newResult[i].y << ", " << newResult[i].z << ")" << std::endl;
+	/*--------------------*/
+	draw(window);
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) handleEvent(event, window);
-		draw(window);
+		/*--------------------*/
+		// drawLine(window, fromF, toF, co);
+		// drawLine(window, fromS, toS, co);
+		// drawLine(window, fromT, toT, co);
+		/*--------------------*/
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
 	}
