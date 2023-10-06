@@ -11,19 +11,21 @@
 #define HEIGHT 240
 
 /*
-(0, 0)   (320, 0)
-(0, 240) (320, 240)
+Diagram: WIDTH * HEIGHT (x * y)
+[(0, 0)   (320, 0)  ]
+[                   ]
+[(0, 240) (320, 240)]
 */
 
 std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
 	std::vector<float> v;
-	float tmp = to - from; // tmp could be positive or negative
+	float tmp = to - from; // 'tmp' could be positive or negative
 	int num = numberOfValues - 1;
-	int numtmp = numberOfValues - 2; // from and to have been pushed back to v
+	int numtmp = numberOfValues - 2; // 'from' and 'to' have been pushed back to v
 	float arithmetic = tmp / num;
 	v.push_back(from);
 	for (int i = 0; i < numtmp; i++) {
-		from = from + arithmetic; // from + positive/negative number
+		from = from + arithmetic; // 'from' + positive / negative number
 		v.push_back(from);
 	}
 	v.push_back(to);
@@ -92,14 +94,32 @@ std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 t
 	return v;
 }
 
+CanvasTriangle generateThreeRandomVertices(CanvasTriangle triangle) {
+	// Random three vertices (points)
+	triangle.v0().x = rand() % WIDTH;
+	triangle.v0().y = rand() % HEIGHT;
+	triangle.v1().x = rand() % WIDTH;
+	triangle.v1().y = rand() % HEIGHT;
+	triangle.v2().x = rand() % WIDTH;
+	triangle.v2().y = rand() % HEIGHT;
+	return triangle;
+}
+
+Colour generateRandomColour(Colour c) {
+	// Random colour
+	c.red = rand() % 256;
+	c.green = rand() % 256;
+	c.blue = rand() % 256;
+	return c;
+}
+
 void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour c) {
 	float xDiff = to.x - from.x;
 	float yDiff = to.y - from.y;
 	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
 	float xStepSize = xDiff / numberOfSteps;
 	float yStepSize = yDiff / numberOfSteps;
-	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue;
-	// uint32_t colour = (255 << 24) + (255 << 16) + (255 << 8) + 255; // White colour line
+	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
 	for (float i = 0.0; i < numberOfSteps; i++) {
 		float x = from.x + (xStepSize * i);
 		float y = from.y + (yStepSize * i);
@@ -107,21 +127,93 @@ void drawLine(DrawingWindow &window, CanvasPoint from, CanvasPoint to, Colour c)
 	}
 }
 
+CanvasPoint flatLine(CanvasPoint from, CanvasPoint to, CanvasPoint extra) {
+	// Line equation: y = mx + b
+	// m = yDiff / xDiff // m = (y2 - y1) / (x2 - x1)
+	// b = y - mx // Substitute one exact point (x1, y1) OR (x2, y2) to get constant b
+	// x = (y - b) / m // Use exact y value of point to get x
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float m = yDiff / xDiff;
+	float b = to.y - (m * to.x); // Substitute one exact point to get constant b
+	extra.x = (extra.y - b) / m; // Substitute extraPoint's y
+	return extra;
+}
+
 void strokedTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c) {
-	c.red = rand() % 256;
-	c.green = rand() % 256;
-	c.blue = rand() % 256;
+	// Random colour
+	c = generateRandomColour(c);
+	// Draw edge
 	drawLine(window, triangle.v0(), triangle.v1(), c);
 	drawLine(window, triangle.v1(), triangle.v2(), c);
 	drawLine(window, triangle.v2(), triangle.v0(), c);
 }
 
+void fillTopTriangle() {
+	// Fill top triangle by drawing lines
+}
+
+void fillBottomTriangle() {
+	// Fill bottom triangle by drawing lines
+}
+
+void filledTriangle(DrawingWindow &window, CanvasTriangle triangle, Colour c) {
+	// Random colour
+	c = generateRandomColour(c);
+	// Draw edge
+	drawLine(window, triangle.v0(), triangle.v1(), c);
+	drawLine(window, triangle.v1(), triangle.v2(), c);
+	drawLine(window, triangle.v2(), triangle.v0(), c);
+	CanvasPoint topPoint; // Close to the top edge
+	CanvasPoint middlePoint; // Close to the middle edge
+	CanvasPoint bottomPoint; // Close to the bottom edge
+	CanvasPoint extraPoint; // Extra point has the same y-coordinate with middle point
+	// Sort vertices by vertical position (top to bottom)
+	if (triangle.v0().y > triangle.v1().y && triangle.v0().y > triangle.v2().y) {
+		bottomPoint = triangle.v0();
+		if (triangle.v1().y > triangle.v2().y) {
+			middlePoint = triangle.v1();
+			topPoint = triangle.v2();
+		} else { // triangle.v2().y > triangle.v1().y
+			middlePoint = triangle.v2();
+			topPoint = triangle.v1();
+		}
+	} else if (triangle.v1().y > triangle.v0().y && triangle.v1().y > triangle.v2().y) {
+		bottomPoint = triangle.v1();
+		if (triangle.v0().y > triangle.v2().y) {
+			middlePoint = triangle.v0();
+			topPoint = triangle.v2();
+		} else { // triangle.v2().y > triangle.v0().y
+			middlePoint = triangle.v2();
+			topPoint = triangle.v0();
+		}
+	} else if (triangle.v2().y > triangle.v0().y && triangle.v2().y > triangle.v1().y) {
+		bottomPoint = triangle.v2();
+		if (triangle.v0().y > triangle.v1().y) {
+			middlePoint = triangle.v0();
+			topPoint = triangle.v1();
+		} else { // triangle.v1().y > triangle.v0().y
+			middlePoint = triangle.v1();
+			topPoint = triangle.v0();
+		}
+	}
+	// Divide triangle into 2 "flat-bottomed" triangles
+	extraPoint.y = middlePoint.y;
+	extraPoint = flatLine(topPoint, bottomPoint, extraPoint);
+	// Draw a line to divide triangle
+	drawLine(window, middlePoint, extraPoint, c);
+	// Fill top triangle
+	// ......
+	// Fill bottom triangle
+	// ......
+}
+
 void draw(DrawingWindow &window) {
 	window.clearPixels();
-	// Black & White
 	/*--------------------*/
-	// float startColour = 255; // white colour
-	// float endColour = 0; // black colour
+	// Black & White
+	// float startColour = 255; // White colour
+	// float endColour = 0; // Black colour
 	/*--------------------*/
 	// Colour
 	// glm::vec3 topLeft(255, 0, 0);        // red 
@@ -132,10 +224,13 @@ void draw(DrawingWindow &window) {
 	// std::vector<glm::vec3> leftColumn;
 	// rightColumn = interpolateThreeElementValues(topLeft, bottomLeft, HEIGHT);
 	// leftColumn = interpolateThreeElementValues(topRight, bottomRight, HEIGHT);
+	/*--------------------*/
 	for (size_t y = 0; y < window.height; y++) {
+		/*--------------------*/
 		// Colour
 		// std::vector<glm::vec3> rowVector;
 		// rowVector = interpolateThreeElementValues(rightColumn[y], leftColumn[y], WIDTH);
+		/*--------------------*/
 		for (size_t x = 0; x < window.width; x++) {
 			/*--------------------*/
 			// RedNoise
@@ -169,7 +264,7 @@ void draw(DrawingWindow &window) {
 			// uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
 			// window.setPixelColour(x, y, colour);
 			/*--------------------*/
-			// Test Background
+			// Test Black Background
 			float red = 0.0;
 			float green = 0.0;
 			float blue = 0.0;
@@ -185,23 +280,18 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 		else if (event.key.keysym.sym == SDLK_RIGHT) std::cout << "RIGHT" << std::endl;
 		else if (event.key.keysym.sym == SDLK_UP) std::cout << "UP" << std::endl;
 		else if (event.key.keysym.sym == SDLK_DOWN) std::cout << "DOWN" << std::endl;
-		else if (event.key.keysym.sym == SDLK_u) { // Draw random triangle
+		else if (event.key.keysym.sym == SDLK_u) { // u: Draw random stroked (unfilled) triangle
 			std::cout << "u" << "/" << "U" << std::endl;
 			CanvasTriangle triangle;
 			Colour c;
-			for (int i = 0; i < 3; i++) {
-				if (i == 2) {
-					triangle.v2().x = rand() % WIDTH;
-					triangle.v2().y = rand() % HEIGHT;
-				} else if (i == 1) {
-					triangle.v1().x = rand() % WIDTH;
-					triangle.v1().y = rand() % HEIGHT;
-				} else { // i == 0
-					triangle.v0().x = rand() % WIDTH;
-					triangle.v0().y = rand() % HEIGHT;
-				}
-			}
+			triangle = generateThreeRandomVertices(triangle);
 			strokedTriangle(window, triangle, c);
+		} else if (event.key.keysym.sym == SDLK_f) { // f: Draw random filled triangle
+			std::cout << "f" << "/" << "F" << std::endl;
+			CanvasTriangle triangle;
+			Colour c;
+			triangle = generateThreeRandomVertices(triangle);
+			filledTriangle(window, triangle, c);
 		}
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		window.savePPM("output.ppm");
@@ -212,47 +302,13 @@ void handleEvent(SDL_Event event, DrawingWindow &window) {
 int main(int argc, char *argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
+	draw(window); // Fixed black background
 	/*--------------------*/
-	// Colour co;
-	// CanvasPoint fromF;
-	// CanvasPoint toF;
-	// fromF.x = 0;
-	// fromF.y = 0;
-	// toF.x = WIDTH / 2;
-	// toF.y = HEIGHT / 2;
-	// CanvasPoint fromS;
-	// CanvasPoint toS;
-	// fromS.x = WIDTH / 2;
-	// fromS.y = HEIGHT / 2;
-	// toS.x = WIDTH;
-	// toS.y = 0;
-	// CanvasPoint fromT;
-	// CanvasPoint toT;
-	// fromT.x = WIDTH / 2;
-	// fromT.y = 0;
-	// toT.x = WIDTH / 2;
-	// toT.y = HEIGHT;
+	// std::cout << std::endl; // Debug copy
 	/*--------------------*/
-	// std::vector<float> result;
-	// result = interpolateSingleFloats(2.2, 8.5, 7);
-	// for (size_t i=0; i<result.size(); i++) std::cout << result[i] << " ";
-	// std::cout << std::endl;
-	/*--------------------*/
-	// glm::vec3 from(1.0, 4.0, 9.2);
-	// glm::vec3 to(4.0, 1.0, 9.8);
-	// std::vector<glm::vec3> newResult;
-	// newResult = interpolateThreeElementValues(from, to, 4);
-	// for (size_t i=0; i<newResult.size(); i++) std::cout << "(" << newResult[i].x << ", " << newResult[i].y << ", " << newResult[i].z << ")" << std::endl;
-	/*--------------------*/
-	draw(window);
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) handleEvent(event, window);
-		/*--------------------*/
-		// drawLine(window, fromF, toF, co);
-		// drawLine(window, fromS, toS, co);
-		// drawLine(window, fromT, toT, co);
-		/*--------------------*/
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
 	}
