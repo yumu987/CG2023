@@ -9,82 +9,27 @@
 #include <TextureMap.h>
 #include <TexturePoint.h>
 #include <iostream>
+#include <fstream>
+#include <ModelTriangle.h>
+#include <string>
+#include <algorithm>
+#include <unordered_map>
 
 #define WIDTH 320
 #define HEIGHT 240
+#define OBJfilename "cornell-box.obj"
+#define MTLfilename "cornell-box.mtl"
 
 /*
+Notes for drawing 2D diagram:
 Diagram: WIDTH * HEIGHT (x * y)
 [(0, 0)   (320, 0)  ]
 [                   ]
 [(0, 240) (320, 240)]
 */
 
-std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
-	std::vector<float> v;
-	float tmp = to - from; // 'tmp' could be positive or negative
-	int num = numberOfValues - 1;
-	int numtmp = numberOfValues - 2; // 'from' and 'to' have been pushed back to v
-	float arithmetic = tmp / num;
-	v.push_back(from);
-	for (int i = 0; i < numtmp; i++) {
-		from = from + arithmetic; // 'from' + positive / negative number
-		v.push_back(from);
-	}
-	v.push_back(to);
-	return v;
-}
-
-std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 to, int numberOfValues) {
-	std::vector<glm::vec3> v;
-	std::vector<float> resultX;
-	std::vector<float> resultY;
-	std::vector<float> resultZ;
-	resultX = interpolateSingleFloats(from.x, to.x, numberOfValues);
-	resultY = interpolateSingleFloats(from.y, to.y, numberOfValues);
-	resultZ = interpolateSingleFloats(from.z, to.z, numberOfValues);
-	for (int i = 0; i < numberOfValues; i++) {
-		glm::vec3 tmpA;
-		tmpA.x = resultX[i];
-		tmpA.y = resultY[i];
-		tmpA.z = resultZ[i];
-		v.push_back(tmpA);
-	}
-	return v;
-}
-
-CanvasTriangle generateThreeRandomVertices(CanvasTriangle triangle) {
-	triangle.v0().x = rand() % WIDTH;
-	triangle.v0().y = rand() % HEIGHT;
-	triangle.v1().x = rand() % WIDTH;
-	triangle.v1().y = rand() % HEIGHT;
-	triangle.v2().x = rand() % WIDTH;
-	triangle.v2().y = rand() % HEIGHT;
-	return triangle;
-}
-
-Colour generateRandomColour(Colour c) {
-	c.red = rand() % 256;
-	c.green = rand() % 256;
-	c.blue = rand() % 256;
-	return c;
-}
-
-void drawLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
-	float xDiff = to.x - from.x;
-	float yDiff = to.y - from.y;
-	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
-	float xStepSize = xDiff / numberOfSteps;
-	float yStepSize = yDiff / numberOfSteps;
-	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
-	for (float i = 0.0; i < numberOfSteps; i++) {
-		float x = from.x + (xStepSize * i);
-		float y = from.y + (yStepSize * i);
-		window.setPixelColour(x, y, colour);
-	}
-}
-
 /*
+Notes for triangle's texture mapping:
 The pixel data is just stored linearly...
 Assume we got a 3x3 matrix:
 width: 3, height: 3
@@ -105,6 +50,76 @@ Substitute into our equation:
 Index: 7 = 2 * 3 + 1 = 6 + 1 = 7
 */
 
+// Week 02 interpolateSingleFloats
+std::vector<float> interpolateSingleFloats(float from, float to, int numberOfValues) {
+	std::vector<float> v;
+	float tmp = to - from; // 'tmp' could be positive or negative
+	int num = numberOfValues - 1;
+	int numtmp = numberOfValues - 2; // 'from' and 'to' have been pushed back to v
+	float arithmetic = tmp / num;
+	v.push_back(from);
+	for (int i = 0; i < numtmp; i++) {
+		from = from + arithmetic; // 'from' + positive / negative number
+		v.push_back(from);
+	}
+	v.push_back(to);
+	return v;
+}
+
+// Week 02 interpolateThreeElementValues
+std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 to, int numberOfValues) {
+	std::vector<glm::vec3> v;
+	std::vector<float> resultX;
+	std::vector<float> resultY;
+	std::vector<float> resultZ;
+	resultX = interpolateSingleFloats(from.x, to.x, numberOfValues);
+	resultY = interpolateSingleFloats(from.y, to.y, numberOfValues);
+	resultZ = interpolateSingleFloats(from.z, to.z, numberOfValues);
+	for (int i = 0; i < numberOfValues; i++) {
+		glm::vec3 tmpA;
+		tmpA.x = resultX[i];
+		tmpA.y = resultY[i];
+		tmpA.z = resultZ[i];
+		v.push_back(tmpA);
+	}
+	return v;
+}
+
+// Week 03 Unfilled Triangle / Filled Triangle
+CanvasTriangle generateThreeRandomVertices(CanvasTriangle triangle) {
+	triangle.v0().x = rand() % WIDTH;
+	triangle.v0().y = rand() % HEIGHT;
+	triangle.v1().x = rand() % WIDTH;
+	triangle.v1().y = rand() % HEIGHT;
+	triangle.v2().x = rand() % WIDTH;
+	triangle.v2().y = rand() % HEIGHT;
+	return triangle;
+}
+
+// Week 03 Unfilled Triangle / Filled Triangle
+Colour generateRandomColour(Colour c) {
+	c.red = rand() % 256;
+	c.green = rand() % 256;
+	c.blue = rand() % 256;
+	return c;
+}
+
+// Week 03 Unfilled Triangle / Filled Triangle
+void drawLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
+	float xStepSize = xDiff / numberOfSteps;
+	float yStepSize = yDiff / numberOfSteps;
+	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
+	for (float i = 0.0; i < numberOfSteps; i++) {
+		float x = from.x + (xStepSize * i);
+		float y = from.y + (yStepSize * i);
+		window.setPixelColour(x, y, colour);
+	}
+}
+
+// Week 03 Texture Mapping
 std::vector<CanvasPoint> interpolationCanvasPoint(CanvasPoint from, CanvasPoint to, int numberOfSteps) {
 	std::vector<CanvasPoint> coordinates;
 
@@ -113,10 +128,10 @@ std::vector<CanvasPoint> interpolationCanvasPoint(CanvasPoint from, CanvasPoint 
 	float xStepSize = xDiff / numberOfSteps;
 	float yStepSize = yDiff / numberOfSteps;
 	
-	float xDiffT = to.texturePoint.x - from.texturePoint.x;
-	float yDiffT = to.texturePoint.y - from.texturePoint.y;
-	float xStepSizeT = xDiffT / numberOfSteps;
-	float yStepSizeT = yDiffT / numberOfSteps;
+	// float xDiffT = to.texturePoint.x - from.texturePoint.x;
+	// float yDiffT = to.texturePoint.y - from.texturePoint.y;
+	// float xStepSizeT = xDiffT / numberOfSteps;
+	// float yStepSizeT = yDiffT / numberOfSteps;
 
 	for (float i = 0.0; i < numberOfSteps; i++) {
 		CanvasPoint point;
@@ -134,6 +149,7 @@ std::vector<CanvasPoint> interpolationCanvasPoint(CanvasPoint from, CanvasPoint 
 	return coordinates;
 }
 
+// Week 03 Texture Mapping
 void drawTextureLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, TextureMap textMap) {
 	std::vector<CanvasPoint> canvasCoordinates;
 	canvasCoordinates = interpolationCanvasPoint(from, to, std::round(to.x - from.x));
@@ -147,6 +163,7 @@ void drawTextureLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Te
 	}
 }
 
+// Week 03 Filled Triangle
 CanvasPoint interpolateLine(CanvasPoint from, CanvasPoint to, CanvasPoint extra) {
 	// Line equation: y = mx + b
 	float xDiff = to.x - from.x;
@@ -171,6 +188,7 @@ CanvasPoint interpolateLine(CanvasPoint from, CanvasPoint to, CanvasPoint extra)
 	return extra;
 }
 
+// Week 03 Unfilled Triangle
 void strokedTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
 	c = generateRandomColour(c);
 	drawLine(window, triangle.v0(), triangle.v1(), c);
@@ -178,6 +196,7 @@ void strokedTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
 	drawLine(window, triangle.v2(), triangle.v0(), c);
 }
 
+// Week 03 Filled Triangle
 void drawWhiteEdgeTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
 	c.red = 255;
 	c.green = 255;
@@ -187,6 +206,7 @@ void drawWhiteEdgeTriangle(DrawingWindow& window, CanvasTriangle triangle, Colou
 	drawLine(window, triangle.v2(), triangle.v0(), c);
 }
 
+// Week 03 Filled Triangle
 void fillTopTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint middle, CanvasPoint extra, Colour c) {
 	float xDiffF = middle.x - top.x;
 	float yDiffF = middle.y - top.y;
@@ -268,6 +288,7 @@ void fillTopTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint middle,
 	}
 }
 
+// Week 03 Filled Triangle
 void fillBottomTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint middle, CanvasPoint extra, Colour c) {
 	float xDiffF = bottom.x - middle.x;
 	float yDiffF = bottom.y - middle.y;
@@ -349,6 +370,7 @@ void fillBottomTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint m
 	}
 }
 
+// Week 03 Filled Triangle
 void filledTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
 	// Random colour
 	c = generateRandomColour(c);
@@ -466,6 +488,7 @@ void filledTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
 	drawWhiteEdgeTriangle(window, triangle, c);
 }
 
+// Week 03 Texture Mapping
 CanvasTriangle generateVisualVerificationVertices(CanvasTriangle triangle) { // Debug function
 	triangle.v0().x = 160;
 	triangle.v0().y = 10;
@@ -476,6 +499,7 @@ CanvasTriangle generateVisualVerificationVertices(CanvasTriangle triangle) { // 
 	return triangle;
 }
 
+// Week 03 Texture Mapping
 TexturePoint interpolateTextureLine(TexturePoint from, TexturePoint to, TexturePoint extra) {
 	// Line equation: y = mx + b
 	float xDiff = to.x - from.x;
@@ -500,6 +524,7 @@ TexturePoint interpolateTextureLine(TexturePoint from, TexturePoint to, TextureP
 	return extra;
 }
 
+// Week 03 Texture Mapping
 void fillTopTextureTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint middle, CanvasPoint extra, TextureMap textMap) {
 	std::vector<CanvasPoint> firstLine;
 	firstLine = interpolationCanvasPoint(top, middle, std::round(middle.y - top.y));
@@ -512,6 +537,7 @@ void fillTopTextureTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint 
 	}
 }
 
+// Week 03 Texture Mapping
 void fillBottomTextureTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint middle, CanvasPoint extra, TextureMap textMap) {
 	std::vector<CanvasPoint> firstLine;
 	firstLine = interpolationCanvasPoint(middle, bottom, bottom.y - middle.y);
@@ -524,6 +550,7 @@ void fillBottomTextureTriangle(DrawingWindow& window, CanvasPoint bottom, Canvas
 	}
 }
 
+// Week 03 Texture Mapping
 CanvasTriangle bubbleSort(CanvasTriangle triangle) {
 	/*
 	[v0]: top
@@ -544,6 +571,7 @@ CanvasTriangle bubbleSort(CanvasTriangle triangle) {
 	return triangle;
 }
 
+// Week 03 Texture Mapping
 std::vector<CanvasPoint> mapPoint(CanvasPoint v0, CanvasPoint v1, CanvasPoint v2) {
 	std::vector<CanvasPoint> canVector;
 	// CanvasPoint initialisation
@@ -573,6 +601,7 @@ std::vector<CanvasPoint> mapPoint(CanvasPoint v0, CanvasPoint v1, CanvasPoint v2
 	return canVector;
 }
 
+// Week 03 Texture Mapping
 void fillTexture(DrawingWindow& window, CanvasTriangle textureTriangle, TextureMap textMap) {
 	// Initialisation of points and sorting algorithm
 	CanvasPoint v0;
@@ -656,23 +685,164 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 	}
 }
 
+// Week 04 OBJ
+void readOBJ() {
+	std::ifstream inputStream(OBJfilename);
+	std::string nextLine;
+	std::vector<glm::vec3> vertices;
+	std::vector<std::size_t> faces;
+	std::vector<ModelTriangle> vecModel; // f to locate vertices
+	std::vector<std::string> colourName; // Colour
+	std::vector<std::string> boardName; // o to locate places
+
+	// If OBJ file load failed
+	if (!inputStream.is_open()) {
+		std::cerr << "Failed to open OBJ file!" << std::endl;
+	}
+
+	// Use a while loop together with the getline() function to read the file line by line
+	while (std::getline(inputStream, nextLine)) {
+		auto line = split(nextLine, ' '); // std::vector<std::string>
+		for (size_t i = 0; i < line.size(); i++) { // iterate all line to locate line[i]
+			if (line[i] == "o") { // 0
+				std::string name;
+				name = line[i+1]; // 1
+				boardName.push_back(name);
+			}
+			if (line[i] == "usemtl") { // 0
+				std::string name;
+				name = line[i+1]; // 1
+				colourName.push_back(name);
+			}
+			if (line[i] == "v") { // 0
+				glm::vec3 tmp;
+				tmp.x = std::stof(line[i+1]); // 1
+				tmp.y = std::stof(line[i+2]); // 2
+				tmp.z = std::stof(line[i+3]); // 3
+				vertices.push_back(tmp);
+			}
+			if (line[i] == "f") { // 0
+				std::size_t tmp_1;
+				std::size_t tmp_2;
+				std::size_t tmp_3;
+				tmp_1 = std::stoi(line[i+1]); // 1
+				tmp_2 = std::stoi(line[i+2]); // 2
+				tmp_3 = std::stoi(line[i+3]); // 3
+				faces.push_back(tmp_1);
+				faces.push_back(tmp_2);
+				faces.push_back(tmp_3);
+			}
+		}
+	}
+
+	for (size_t i = 0; i < faces.size(); i += 3) { // 96 / 3 = 32
+		glm::vec3 f1 = vertices[faces[i] - 1];
+		glm::vec3 f2 = vertices[faces[i + 1] - 1];
+		glm::vec3 f3 = vertices[faces[i + 2] - 1];
+		vecModel.push_back(ModelTriangle(f1, f2, f3, Colour(255, 255, 255)));
+	}
+
+	for (size_t i = 0; i < vecModel.size(); i++) {
+		// Print out vecModel which is used to contain model's data
+		std::cout << "vecModel[i]: " << i << std::endl;
+		std::cout << vecModel[i] << std::endl;
+	}
+
+	// Close the file
+	inputStream.close();
+}
+
+// Week 04 MTL
+void readMTL() {
+	std::ifstream inputStream(MTLfilename);
+	std::string nextLine;
+	std::unordered_map<std::string, uint32_t> myMap;
+	// std::unordered_map<std::string, float> testMap;
+	std::vector<float> colourBoard;
+	std::vector<std::string> colourName;
+
+	// If MTL file load failed
+	if (!inputStream.is_open()) {
+		std::cerr << "Failed to open MTL file!" << std::endl;
+	}
+
+	// Use a while loop together with the getline() function to read the file line by line
+	// while(std::getline(inputStream, nextLine)) {
+	// 	auto line = split(nextLine, ' '); // std::vector<std::string>
+	// 	for (size_t i = 0; i < line.size(); i++) {
+	// 		if (line[i] == "newmtl") { // 0
+	// 			colourName.push_back(line[i+1]); // 1
+	// 		}
+	// 		if (line[i] == "Kd") { // 0
+	// 			colourBoard.push_back(std::stof(line[i+1]) * 255); // 1
+	// 			colourBoard.push_back(std::stof(line[i+2]) * 255); // 2
+	// 			colourBoard.push_back(std::stof(line[i+3]) * 255); // 3
+	// 		}
+	// 	}
+	// }
+
+	// for (size_t i = 0; i < colourName.size(); i++) {
+    //     // Print the color name
+    //     std::cout << "Colour Name: " << colourName[i] << std::endl;
+    //     // Print the 3 associated color values
+    //     for (size_t j = i * 3; j < (i * 3) + 3; j+=3) { // size_t j = i * 3; j < (i * 3) + 3; j++
+    //         std::cout << "Red Value: " << colourBoard[j] << std::endl;
+	// 		std::cout << "Green Value: " << colourBoard[j+1] << std::endl;
+	// 		std::cout << "Blue Value: " << colourBoard[j+2] << std::endl;
+    //     }
+	// }
+	
+	// Use a while loop together with the getline() function to read the file line by line
+	while(std::getline(inputStream, nextLine)) {
+		auto line = split(nextLine, ' '); // std::vector<std::string>
+		for (size_t i = 0; i < line.size(); i++) {
+			if (line[i] == "newmtl") { // 0
+				colourName.push_back(line[i+1]); // 1
+			}
+			if (line[i] == "Kd") { // 0
+				colourBoard.push_back(std::stof(line[i+1]) * 255); // 1
+				colourBoard.push_back(std::stof(line[i+2]) * 255); // 2
+				colourBoard.push_back(std::stof(line[i+3]) * 255); // 3
+			}
+		}
+	}
+
+	for (size_t i = 0; i < colourName.size(); i++) {
+		for (size_t j = i * 3; j < (i * 3) + 3; j+=3) {
+			uint32_t colour = (255 << 24) + (int(colourBoard[j]) << 16) + (int(colourBoard[j+1]) << 8) + int(colourBoard[j+2]);
+			myMap[colourName[i]] = colour;
+			// testMap[colourName[i]] = colourBoard[j];
+		}
+	}
+
+	// Iterate through the unordered_map
+    for (const auto& pair : myMap) {
+        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
+    }
+
+	// Close the file
+	inputStream.close();
+}
+
 int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
 	/*----------*/
-	CanvasTriangle triangle; // Debug triangle for white edge
-	Colour c; // Debug colour
-	CanvasTriangle textureTriangle;
-	TextureMap textMap = TextureMap("texture.ppm"); // Load texture.ppm
+	// readOBJ();
+	readMTL();
+	/*----------*/
+	// CanvasTriangle triangle; // Debug triangle for white edge
+	// Colour c; // Debug colour
+	// CanvasTriangle textureTriangle;
+	// TextureMap textMap = TextureMap("texture.ppm"); // Load texture.ppm
 	/*----------*/
 	draw(window); // Fixed black background
 	/*----------*/
-	fillTexture(window, textureTriangle, textMap);
-	/*----------*/
-	// Debug white edge below to ensure texture is correct
-	triangle = generateVisualVerificationVertices(triangle);
+	// fillTexture(window, textureTriangle, textMap);
+	// // Debug white edge below to ensure texture is correct
+	// triangle = generateVisualVerificationVertices(triangle);
 	// triangle = bubbleSort(triangle);
-	drawWhiteEdgeTriangle(window, triangle, c);
+	// drawWhiteEdgeTriangle(window, triangle, c);
 	/*----------*/
 	while (true) {
 		// We MUST poll for events - otherwise the window will freeze !
