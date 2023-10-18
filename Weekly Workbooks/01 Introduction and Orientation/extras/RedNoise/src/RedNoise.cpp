@@ -17,37 +17,18 @@
 
 #define WIDTH 320
 #define HEIGHT 240
+#define HALFWIDTH 160
+#define HALFHEIGHT 120
 #define OBJfilename "cornell-box.obj"
 #define MTLfilename "cornell-box.mtl"
 
 /*
 Notes for drawing 2D diagram:
-Diagram: WIDTH * HEIGHT (x * y)
+Coordinates System:
+Diagram: WIDTH * HEIGHT / (x * y)
 [(0, 0)   (320, 0)  ]
 [                   ]
 [(0, 240) (320, 240)]
-*/
-
-/*
-Notes for triangle's texture mapping:
-The pixel data is just stored linearly...
-Assume we got a 3x3 matrix:
-width: 3, height: 3
-	0	1	2
-0	[]	[]	[]
-1	[]	[]	[]
-2	[]	[X]	[]
-We need to find X's index...
-As we mentioned before, pixel data are stored linearly...
-So, we can get:
-	[0]	[1]	[2]
-	[3]	[4]	[5]
-	[6]	[7]	[8]
-A 3x3 matrix stores data like this.
-If we got width, height and X's coordinate: (1, 2) = (x, y), how could we get X's index?
-Use index = y * height + x. / index = y * width + x.
-Substitute into our equation:
-Index: 7 = 2 * 3 + 1 = 6 + 1 = 7
 */
 
 // Week 02 interpolateSingleFloats
@@ -151,6 +132,27 @@ std::vector<CanvasPoint> interpolationCanvasPoint(CanvasPoint from, CanvasPoint 
 
 // Week 03 Texture Mapping
 void drawTextureLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, TextureMap textMap) {
+	/*
+	Notes for triangle's texture mapping:
+	The pixel data is just stored linearly...
+	Assume we got a 3x3 matrix:
+	width: 3, height: 3
+		0	1	2
+	0	[]	[]	[]
+	1	[]	[]	[]
+	2	[]	[X]	[]
+	We need to find X's index...
+	As we mentioned before, pixel data are stored linearly...
+	So, we can get:
+		[0]	[1]	[2]
+		[3]	[4]	[5]
+		[6]	[7]	[8]
+	A 3x3 matrix stores data like this.
+	If we got width, height and X's coordinate: (1, 2) = (x, y), how could we get X's index?
+	Use index = y * height + x. / index = y * width + x.
+	Substitute into our equation:
+	Index: 7 = 2 * 3 + 1 = 6 + 1 = 7
+	*/
 	std::vector<CanvasPoint> canvasCoordinates;
 	canvasCoordinates = interpolationCanvasPoint(from, to, std::round(to.x - from.x));
 
@@ -686,14 +688,25 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 }
 
 // Week 04 OBJ
-void readOBJ() {
+std::vector<ModelTriangle> triangleModel(std::vector<glm::vec3> vertices, std::vector<std::size_t> faces, std::vector<ModelTriangle> vecModel, Colour c) {
+	for (size_t i = 0; i < faces.size(); i += 3) { // 96 / 3 = 32
+		glm::vec3 f1 = vertices[faces[i] - 1];
+		glm::vec3 f2 = vertices[faces[i + 1] - 1];
+		glm::vec3 f3 = vertices[faces[i + 2] - 1];
+		vecModel.push_back(ModelTriangle(f1, f2, f3, c));
+	}
+	return vecModel; // [0] - [31]
+}
+
+// Week 04 OBJ
+std::vector<ModelTriangle> readOBJ(std::vector<ModelTriangle> vecModel) {
 	std::ifstream inputStream(OBJfilename);
 	std::string nextLine;
 	std::vector<glm::vec3> vertices;
 	std::vector<std::size_t> faces;
-	std::vector<ModelTriangle> vecModel; // f to locate vertices
-	std::vector<std::string> colourName; // Colour
-	std::vector<std::string> boardName; // o to locate places
+	Colour c;
+	// std::vector<std::string> colourName; // Colour
+	// std::vector<std::string> boardName; // o to locate places
 
 	// If OBJ file load failed
 	if (!inputStream.is_open()) {
@@ -704,21 +717,21 @@ void readOBJ() {
 	while (std::getline(inputStream, nextLine)) {
 		auto line = split(nextLine, ' '); // std::vector<std::string>
 		for (size_t i = 0; i < line.size(); i++) { // iterate all line to locate line[i]
-			if (line[i] == "o") { // 0
-				std::string name;
-				name = line[i+1]; // 1
-				boardName.push_back(name);
-			}
-			if (line[i] == "usemtl") { // 0
-				std::string name;
-				name = line[i+1]; // 1
-				colourName.push_back(name);
-			}
+			// if (line[i] == "o") { // 0
+			// 	std::string name;
+			// 	name = line[i+1]; // 1
+			// 	boardName.push_back(name);
+			// }
+			// if (line[i] == "usemtl") { // 0
+			// 	std::string name;
+			// 	name = line[i+1]; // 1
+			// 	colourName.push_back(name);
+			// }
 			if (line[i] == "v") { // 0
 				glm::vec3 tmp;
-				tmp.x = std::stof(line[i+1]); // 1
-				tmp.y = std::stof(line[i+2]); // 2
-				tmp.z = std::stof(line[i+3]); // 3
+				tmp.x = std::stof(line[i+1]) * 0.35; // 1
+				tmp.y = std::stof(line[i+2]) * 0.35; // 2
+				tmp.z = std::stof(line[i+3]) * 0.35; // 3
 				vertices.push_back(tmp);
 			}
 			if (line[i] == "f") { // 0
@@ -735,29 +748,46 @@ void readOBJ() {
 		}
 	}
 
-	for (size_t i = 0; i < faces.size(); i += 3) { // 96 / 3 = 32
-		glm::vec3 f1 = vertices[faces[i] - 1];
-		glm::vec3 f2 = vertices[faces[i + 1] - 1];
-		glm::vec3 f3 = vertices[faces[i + 2] - 1];
-		vecModel.push_back(ModelTriangle(f1, f2, f3, Colour(255, 255, 255)));
+	// Update vecModel
+	vecModel = triangleModel(vertices, faces, vecModel, c);
+
+	// Hardcoding to insert colour name inside ModelTriangle...
+	vecModel[0].colour.name = "White";
+	vecModel[1].colour.name = "White";
+	vecModel[2].colour.name = "Grey";
+	vecModel[3].colour.name = "Grey";
+	vecModel[4].colour.name = "Cyan";
+	vecModel[5].colour.name = "Cyan";
+	vecModel[6].colour.name = "Green";
+	vecModel[7].colour.name = "Green";
+	vecModel[8].colour.name = "Magenta";
+	vecModel[9].colour.name = "Magenta";
+	vecModel[10].colour.name = "Yellow";
+	vecModel[11].colour.name = "Yellow";
+	for (size_t i = 12; i < 22; i++) {
+		vecModel[i].colour.name = "Red";
+	}
+	for (size_t i = 22; i < vecModel.size(); i++) {
+		vecModel[i].colour.name = "Blue";
 	}
 
-	for (size_t i = 0; i < vecModel.size(); i++) {
-		// Print out vecModel which is used to contain model's data
-		std::cout << "vecModel[i]: " << i << std::endl;
-		std::cout << vecModel[i] << std::endl;
-	}
+	// Print out vecModel which is used to contain model's data (debug method)
+	// for (size_t i = 0; i < vecModel.size(); i++) {
+	// 	std::cout << "vecModel[i]: " << i << std::endl;
+	// 	std::cout << vecModel[i] << std::endl; // [0] - [31]
+	// }
 
 	// Close the file
 	inputStream.close();
+
+	return vecModel;
 }
 
 // Week 04 MTL
-void readMTL() {
+// std::unordered_map<std::string, uint32_t> myMap
+std::unordered_map<std::string, std::vector<float>> readMTL(std::unordered_map<std::string, std::vector<float>> myMap) {
 	std::ifstream inputStream(MTLfilename);
 	std::string nextLine;
-	std::unordered_map<std::string, uint32_t> myMap;
-	// std::unordered_map<std::string, float> testMap;
 	std::vector<float> colourBoard;
 	std::vector<std::string> colourName;
 
@@ -765,35 +795,9 @@ void readMTL() {
 	if (!inputStream.is_open()) {
 		std::cerr << "Failed to open MTL file!" << std::endl;
 	}
-
-	// Use a while loop together with the getline() function to read the file line by line
-	// while(std::getline(inputStream, nextLine)) {
-	// 	auto line = split(nextLine, ' '); // std::vector<std::string>
-	// 	for (size_t i = 0; i < line.size(); i++) {
-	// 		if (line[i] == "newmtl") { // 0
-	// 			colourName.push_back(line[i+1]); // 1
-	// 		}
-	// 		if (line[i] == "Kd") { // 0
-	// 			colourBoard.push_back(std::stof(line[i+1]) * 255); // 1
-	// 			colourBoard.push_back(std::stof(line[i+2]) * 255); // 2
-	// 			colourBoard.push_back(std::stof(line[i+3]) * 255); // 3
-	// 		}
-	// 	}
-	// }
-
-	// for (size_t i = 0; i < colourName.size(); i++) {
-    //     // Print the color name
-    //     std::cout << "Colour Name: " << colourName[i] << std::endl;
-    //     // Print the 3 associated color values
-    //     for (size_t j = i * 3; j < (i * 3) + 3; j+=3) { // size_t j = i * 3; j < (i * 3) + 3; j++
-    //         std::cout << "Red Value: " << colourBoard[j] << std::endl;
-	// 		std::cout << "Green Value: " << colourBoard[j+1] << std::endl;
-	// 		std::cout << "Blue Value: " << colourBoard[j+2] << std::endl;
-    //     }
-	// }
 	
 	// Use a while loop together with the getline() function to read the file line by line
-	while(std::getline(inputStream, nextLine)) {
+	while (std::getline(inputStream, nextLine)) {
 		auto line = split(nextLine, ' '); // std::vector<std::string>
 		for (size_t i = 0; i < line.size(); i++) {
 			if (line[i] == "newmtl") { // 0
@@ -807,37 +811,125 @@ void readMTL() {
 		}
 	}
 
+	// Insert index and corresponding colour into the hashmap
 	for (size_t i = 0; i < colourName.size(); i++) {
 		for (size_t j = i * 3; j < (i * 3) + 3; j+=3) {
-			uint32_t colour = (255 << 24) + (int(colourBoard[j]) << 16) + (int(colourBoard[j+1]) << 8) + int(colourBoard[j+2]);
-			myMap[colourName[i]] = colour;
-			// testMap[colourName[i]] = colourBoard[j];
+			// uint32_t colour = (255 << 24) + (int(colourBoard[j]) << 16) + (int(colourBoard[j+1]) << 8) + int(colourBoard[j+2]);
+			// myMap[colourName[i]] = colour;
+			myMap[colourName[i]] = {colourBoard[j], colourBoard[j+1], colourBoard[j+2]};
 		}
 	}
 
-	// Iterate through the unordered_map
-    for (const auto& pair : myMap) {
-        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
-    }
+	// Iterate through the unordered_map (debug method)
+    // for (const auto& pair : myMap) {
+    //     std::cout << "Colour: " << pair.first << ", Red Value: " << pair.second[0]<< ", Green Value: " << pair.second[1]<< ", Blue Value: " << pair.second[2] << std::endl;
+    // }
 
 	// Close the file
 	inputStream.close();
+
+	return myMap;
+}
+
+// Week 04 getCanvasIntersectionPoint
+CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPosition, glm::vec3 vertexPosition, float focalLength) {
+	/*
+	Formulae:
+	U^i = f * (X^i / Z^i) + W / 2
+	V^i = f * (Y^i / Z^i) + H / 2
+	Triangle:
+		   []
+	     [][] h^v
+	[]h^i[][]
+	d^i
+	  d^v
+	h^v / d^v = h^i / d^i
+	Multiplier: 240 (It can be adjusted)
+	A single minus (-) is showed to change the direction of x
+	*/
+	CanvasPoint point;
+	point.x = 170 * focalLength * ( - (vertexPosition.x - cameraPosition.x) / (vertexPosition.z - cameraPosition.z)) + HALFWIDTH;
+	point.y = 170 * focalLength * ((vertexPosition.y - cameraPosition.y) / (vertexPosition.z - cameraPosition.z)) + HALFHEIGHT;
+	return point;
+}
+
+// Week 04 ModelTriangle
+std::vector<ModelTriangle> updateModelTriangleColour(std::unordered_map<std::string, std::vector<float>> myMap, std::vector<ModelTriangle> vecModel) {
+	for (size_t i = 0; i < vecModel.size(); i++) {
+		for (const auto& pair : myMap) {
+    	    if (vecModel[i].colour.name == pair.first) { // Colour name matched
+				// Insert RGB value into colour
+				vecModel[i].colour.red = int(pair.second[0]);
+				vecModel[i].colour.green = int(pair.second[1]);
+				vecModel[i].colour.blue = int(pair.second[2]);
+			}
+    	}
+	}
+	return vecModel;
+}
+
+// Week 04 ModelTriangle
+void drawPoint(DrawingWindow &window, CanvasPoint point) {
+	uint32_t colour = (255 << 24) + (255 << 16) + (255 << 8) + 255; // White colour pack
+	window.setPixelColour(point.x, point.y, colour);
 }
 
 int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
 	/*----------*/
-	// readOBJ();
-	readMTL();
+	// std::unordered_map<std::string, uint32_t> myMap;
+	std::unordered_map<std::string, std::vector<float>> myMap;
+	std::vector<ModelTriangle> vecModel; // 32
+	glm::vec3 cameraPosition (0.0, 0.0, 4.0); // Initial cameraPosition
+	float focalLength = 2.0; // Initial focalLength
+	std::vector<CanvasPoint> vecPoint; // 96
+	std::vector<Colour> vecColour; // 32
+	myMap = readMTL(myMap);
+	vecModel = readOBJ(vecModel);
+	vecModel = updateModelTriangleColour(myMap, vecModel); // Map colour to vecModel
+	/*----------*/
+	draw(window); // Fixed black background
+	/*----------*/
+	for (size_t i = 0; i < vecModel.size(); i++) {
+		for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
+			glm::vec3 vertexPosition = vecModel[i].vertices[j];
+			CanvasPoint point = getCanvasIntersectionPoint(cameraPosition, vertexPosition, focalLength);
+			vecPoint.push_back(point); // Store canvas point
+			drawPoint(window, point);
+		}
+	}
+	for (size_t i = 0; i < vecModel.size(); i++) {
+		vecColour.push_back(vecModel[i].colour); // Store colour
+	}
+	// for (size_t i = 0; i < vecPoint.size(); i+=3) {
+	// 	CanvasTriangle triangle;
+	// 	Colour c;
+	// 	triangle.v0() = vecPoint[i];
+	// 	triangle.v1() = vecPoint[i+1];
+	// 	triangle.v2() = vecPoint[i+2];
+	// 	drawWhiteEdgeTriangle(window, triangle, c);
+	// }
+	for (size_t i = 0; i < vecPoint.size(); i+=3) {
+		CanvasTriangle triangle;
+		Colour c1;
+		Colour c2;
+		Colour c3;
+		triangle.v0() = vecPoint[i];
+		triangle.v1() = vecPoint[i+1];
+		triangle.v2() = vecPoint[i+2];
+		c1 = vecColour[i/3];
+		c2 = vecColour[(i+1)/3];
+		c3 = vecColour[(i+2)/3];
+		drawLine(window, triangle.v0(), triangle.v1(), c1);
+		drawLine(window, triangle.v1(), triangle.v2(), c2);
+		drawLine(window, triangle.v2(), triangle.v0(), c3);
+	}
 	/*----------*/
 	// CanvasTriangle triangle; // Debug triangle for white edge
 	// Colour c; // Debug colour
 	// CanvasTriangle textureTriangle;
 	// TextureMap textMap = TextureMap("texture.ppm"); // Load texture.ppm
-	/*----------*/
-	draw(window); // Fixed black background
-	/*----------*/
 	// fillTexture(window, textureTriangle, textMap);
 	// // Debug white edge below to ensure texture is correct
 	// triangle = generateVisualVerificationVertices(triangle);
