@@ -100,6 +100,24 @@ void drawLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c)
 	}
 }
 
+// Week 04 Debug
+void checkLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
+	float xStepSize = xDiff / numberOfSteps;
+	float yStepSize = yDiff / numberOfSteps;
+	c.red = 255;
+	c.green = 255;
+	c.blue = 255;
+	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
+	for (float i = 0.0; i < numberOfSteps; i++) {
+		float x = from.x + (xStepSize * i);
+		float y = from.y + (yStepSize * i);
+		window.setPixelColour(x, y, colour);
+	}
+}
+
 // Week 03 Texture Mapping
 std::vector<CanvasPoint> interpolationCanvasPoint(CanvasPoint from, CanvasPoint to, int numberOfSteps) {
 	std::vector<CanvasPoint> coordinates;
@@ -542,10 +560,10 @@ void fillTopTextureTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint 
 // Week 03 Texture Mapping
 void fillBottomTextureTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint middle, CanvasPoint extra, TextureMap textMap) {
 	std::vector<CanvasPoint> firstLine;
-	firstLine = interpolationCanvasPoint(middle, bottom, bottom.y - middle.y);
+	firstLine = interpolationCanvasPoint(middle, bottom, std::round(bottom.y - middle.y));
 
 	std::vector<CanvasPoint> secondLine;
-	secondLine = interpolationCanvasPoint(extra, bottom, bottom.y - extra.y);
+	secondLine = interpolationCanvasPoint(extra, bottom, std::round(bottom.y - extra.y));
 
 	for (size_t i = 0; i < firstLine.size(); i++) { // i < secondLine.size()
 		drawTextureLine(window, firstLine[i], secondLine[i], textMap);
@@ -646,6 +664,7 @@ void fillTexture(DrawingWindow& window, CanvasTriangle textureTriangle, TextureM
 	fillBottomTextureTriangle(window, textureTriangle.v2(), textureTriangle.v1(), extra, textMap); // Bottom point, middle point and extra
 }
 
+// Week 01
 void draw(DrawingWindow& window) {
 	window.clearPixels();
 	for (size_t y = 0; y < window.height; y++) {
@@ -660,6 +679,7 @@ void draw(DrawingWindow& window) {
 	}
 }
 
+// Week 01
 void handleEvent(SDL_Event event, DrawingWindow& window) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) std::cout << "LEFT" << std::endl;
@@ -874,6 +894,76 @@ void drawPoint(DrawingWindow &window, CanvasPoint point) {
 	window.setPixelColour(point.x, point.y, colour);
 }
 
+// Week 04 ModelTriangle
+std::vector<CanvasPoint> interpolationModelTriangleCanvasPoint(CanvasPoint from, CanvasPoint to, int numberOfSteps) {
+	std::vector<CanvasPoint> coordinates;
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float xStepSize = xDiff / numberOfSteps;
+	float yStepSize = yDiff / numberOfSteps;
+	for (float i = 0.0; i < numberOfSteps; i++) {
+		CanvasPoint point;
+		point.x = from.x + (xStepSize * i);
+		point.y = from.y + (yStepSize * i);
+		coordinates.push_back(point);
+	}
+	return coordinates;
+}
+
+// Week 04 ModelTriangle
+void drawModelTriangleLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
+	float xDiff = to.x - from.x;
+	float yDiff = to.y - from.y;
+	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
+	float xStepSize = xDiff / numberOfSteps;
+	float yStepSize = yDiff / numberOfSteps;
+	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
+	for (float i = 0.0; i < numberOfSteps; i++) {
+		float x = from.x + (xStepSize * i);
+		float y = from.y + (yStepSize * i);
+		window.setPixelColour(x, y, colour);
+	}
+}
+
+// Week 04 ModelTriangle
+void fillTopModelTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint middle, CanvasPoint extra, Colour c) {
+	std::vector<CanvasPoint> firstLine;
+	firstLine = interpolationModelTriangleCanvasPoint(top, middle, std::round(middle.y - top.y));
+	std::vector<CanvasPoint> secondLine;
+	secondLine = interpolationModelTriangleCanvasPoint(top, extra, std::round(extra.y - top.y));
+	for (size_t i = 0; i < firstLine.size(); i++) { // i < secondLine.size()
+		drawModelTriangleLine(window, firstLine[i], secondLine[i], c);
+	}
+}
+
+// Week 04 ModelTriangle
+void fillBottomModelTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint middle, CanvasPoint extra, Colour c) {
+	std::vector<CanvasPoint> firstLine;
+	firstLine = interpolationModelTriangleCanvasPoint(middle, bottom, std::round(bottom.y - middle.y));
+	std::vector<CanvasPoint> secondLine;
+	secondLine = interpolationModelTriangleCanvasPoint(extra, bottom, std::round(bottom.y - extra.y));
+	for (size_t i = 0; i < firstLine.size(); i++) { // i < secondLine.size()
+		drawModelTriangleLine(window, firstLine[i], secondLine[i], c);
+	}
+}
+
+// Week 04 ModelTriangle
+void filledModelTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
+	// Initialisation of points and sorting algorithm
+	CanvasPoint extra;
+	triangle = bubbleSort(triangle); // Sort top, middle and bottom
+	// Update extra point in canvas
+	extra.y = triangle.v1().y;
+	extra = interpolateLine(triangle.v0(), triangle.v2(), extra);
+	// Divide triangle
+	drawModelTriangleLine(window, triangle.v1(), extra, c); // Middle point with extra
+	// Draw top
+	fillTopModelTriangle(window, triangle.v0(), triangle.v1(), extra, c); // Top point, middle point and extra
+	// Draw bottom
+	fillBottomModelTriangle(window, triangle.v2(), triangle.v1(), extra, c); // Bottom point, middle point and extra
+}
+
+// Week 01
 int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
@@ -899,9 +989,11 @@ int main(int argc, char* argv[]) {
 			drawPoint(window, point);
 		}
 	}
+
 	for (size_t i = 0; i < vecModel.size(); i++) {
 		vecColour.push_back(vecModel[i].colour); // Store colour
 	}
+
 	// for (size_t i = 0; i < vecPoint.size(); i+=3) {
 	// 	CanvasTriangle triangle;
 	// 	Colour c;
@@ -910,20 +1002,36 @@ int main(int argc, char* argv[]) {
 	// 	triangle.v2() = vecPoint[i+2];
 	// 	drawWhiteEdgeTriangle(window, triangle, c);
 	// }
+
+	// for (size_t i = 0; i < vecPoint.size(); i+=3) {
+	// 	CanvasTriangle triangle;
+	// 	Colour c1;
+	// 	Colour c2;
+	// 	Colour c3;
+	// 	triangle.v0() = vecPoint[i];
+	// 	triangle.v1() = vecPoint[i+1];
+	// 	triangle.v2() = vecPoint[i+2];
+	// 	c1 = vecColour[i/3];
+	// 	c2 = vecColour[(i+1)/3];
+	// 	c3 = vecColour[(i+2)/3];
+	// 	drawLine(window, triangle.v0(), triangle.v1(), c1);
+	// 	drawLine(window, triangle.v1(), triangle.v2(), c2);
+	// 	drawLine(window, triangle.v2(), triangle.v0(), c3);
+	// }
+
 	for (size_t i = 0; i < vecPoint.size(); i+=3) {
 		CanvasTriangle triangle;
-		Colour c1;
-		Colour c2;
-		Colour c3;
+		Colour c;
+		// Extract points
 		triangle.v0() = vecPoint[i];
 		triangle.v1() = vecPoint[i+1];
 		triangle.v2() = vecPoint[i+2];
-		c1 = vecColour[i/3];
-		c2 = vecColour[(i+1)/3];
-		c3 = vecColour[(i+2)/3];
-		drawLine(window, triangle.v0(), triangle.v1(), c1);
-		drawLine(window, triangle.v1(), triangle.v2(), c2);
-		drawLine(window, triangle.v2(), triangle.v0(), c3);
+		// Extract colour
+		c = vecColour[i/3];
+		drawLine(window, triangle.v0(), triangle.v1(), c);
+		drawLine(window, triangle.v1(), triangle.v2(), c);
+		drawLine(window, triangle.v2(), triangle.v0(), c);
+		filledModelTriangle(window, triangle, c);
 	}
 	/*----------*/
 	// CanvasTriangle triangle; // Debug triangle for white edge
