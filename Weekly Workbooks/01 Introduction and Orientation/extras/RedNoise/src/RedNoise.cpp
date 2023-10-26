@@ -14,6 +14,7 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
+#include <cmath>
 
 #define WIDTH 320
 #define HEIGHT 240
@@ -21,6 +22,9 @@
 #define HALFHEIGHT 120
 #define OBJfilename "cornell-box.obj"
 #define MTLfilename "cornell-box.mtl"
+
+// Linear depthBuffer, 2D to 1D vector in float
+std::vector<float> depthBuffer(320 * 240, 0.0); // Initialisation of depthBuffer
 
 /*
 Notes for drawing 2D diagram:
@@ -866,10 +870,16 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPosition, glm::vec3 verte
 	h^v / d^v = h^i / d^i
 	Multiplier: 240 (It can be adjusted)
 	A single minus (-) is showed to change the direction of x
+	Minus (-) will reverse the direction
 	*/
 	CanvasPoint point;
 	point.x = 170 * focalLength * ( - (vertexPosition.x - cameraPosition.x) / (vertexPosition.z - cameraPosition.z)) + HALFWIDTH;
 	point.y = 170 * focalLength * ((vertexPosition.y - cameraPosition.y) / (vertexPosition.z - cameraPosition.z)) + HALFHEIGHT;
+	// If z(1/Z) is greater, it is close to camera
+	// If z(1/Z) is smaller, it is far from camera
+	// depth debug methods below
+	// point.depth = 1 / (vertexPosition.z - cameraPosition.z); // Normal, blue covers red
+	point.depth = 1 / - (vertexPosition.z - cameraPosition.z); // Red covers blue
 	return point;
 }
 
@@ -914,14 +924,34 @@ std::vector<CanvasPoint> interpolationModelTriangleCanvasPoint(CanvasPoint from,
 void drawModelTriangleLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
 	float xDiff = to.x - from.x;
 	float yDiff = to.y - from.y;
+	float zDiff = to.depth - from.depth;
 	float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
 	float xStepSize = xDiff / numberOfSteps;
 	float yStepSize = yDiff / numberOfSteps;
+	float zStepSize = zDiff / numberOfSteps;
 	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
 	for (float i = 0.0; i < numberOfSteps; i++) {
 		float x = from.x + (xStepSize * i);
 		float y = from.y + (yStepSize * i);
-		window.setPixelColour(x, y, colour);
+		float z = from.depth + (zStepSize * i);
+		// window.setPixelColour(std::floor(x), std::floor(y), colour);
+		// window.setPixelColour(std::ceil(x), std::ceil(y), colour);
+		// --------------------
+		// float a = std::floor(y) * WIDTH + std::floor(x); // Index of depthBuffer, as depthBuffer is linear
+		// if (z < depthBuffer[std::floor(a)]) { // If z is small, it is far from camera, no update in depthBuffer
+		// 	continue;
+		// } else { // z >= depthBuffer[std::floor(a)] // If z is equal to or greater than depthBuffer, record z and draw pixels
+		// 	depthBuffer[std::floor(a)] = z;
+		// 	window.setPixelColour(std::floor(x), std::floor(y), colour);
+		// }
+		float a = std::ceil(y) * WIDTH + std::ceil(x); // Index of depthBuffer, as depthBuffer is linear
+		if (z < depthBuffer[std::ceil(a)]) { // If z is small, it is far from camera, no update in depthBuffer
+			continue;
+		} else { // z >= depthBuffer[std::ceil(a)] // If z is equal to or greater than depthBuffer, record z and draw pixels
+			depthBuffer[std::ceil(a)] = z;
+			window.setPixelColour(std::ceil(x), std::ceil(y), colour);
+		}
+		// --------------------
 	}
 }
 
@@ -957,9 +987,9 @@ void filledModelTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour 
 	extra = interpolateLine(triangle.v0(), triangle.v2(), extra);
 	// Divide triangle
 	drawModelTriangleLine(window, triangle.v1(), extra, c); // Middle point with extra
-	// Draw top
+	// Draw top triangle
 	fillTopModelTriangle(window, triangle.v0(), triangle.v1(), extra, c); // Top point, middle point and extra
-	// Draw bottom
+	// Draw bottom triangle
 	fillBottomModelTriangle(window, triangle.v2(), triangle.v1(), extra, c); // Bottom point, middle point and extra
 }
 
@@ -993,7 +1023,6 @@ int main(int argc, char* argv[]) {
 	for (size_t i = 0; i < vecModel.size(); i++) {
 		vecColour.push_back(vecModel[i].colour); // Store colour
 	}
-
 	// for (size_t i = 0; i < vecPoint.size(); i+=3) {
 	// 	CanvasTriangle triangle;
 	// 	Colour c;
@@ -1002,7 +1031,6 @@ int main(int argc, char* argv[]) {
 	// 	triangle.v2() = vecPoint[i+2];
 	// 	drawWhiteEdgeTriangle(window, triangle, c);
 	// }
-
 	// for (size_t i = 0; i < vecPoint.size(); i+=3) {
 	// 	CanvasTriangle triangle;
 	// 	Colour c1;
@@ -1018,7 +1046,6 @@ int main(int argc, char* argv[]) {
 	// 	drawLine(window, triangle.v1(), triangle.v2(), c2);
 	// 	drawLine(window, triangle.v2(), triangle.v0(), c3);
 	// }
-
 	for (size_t i = 0; i < vecPoint.size(); i+=3) {
 		CanvasTriangle triangle;
 		Colour c;
@@ -1028,10 +1055,15 @@ int main(int argc, char* argv[]) {
 		triangle.v2() = vecPoint[i+2];
 		// Extract colour
 		c = vecColour[i/3];
-		drawLine(window, triangle.v0(), triangle.v1(), c);
-		drawLine(window, triangle.v1(), triangle.v2(), c);
-		drawLine(window, triangle.v2(), triangle.v0(), c);
+		// Draw Triangle
 		filledModelTriangle(window, triangle, c);
+		// Draw edge
+		// drawLine(window, triangle.v0(), triangle.v1(), c);
+		// drawLine(window, triangle.v1(), triangle.v2(), c);
+		// drawLine(window, triangle.v2(), triangle.v0(), c);
+		drawModelTriangleLine(window, triangle.v0(), triangle.v1(), c);
+		drawModelTriangleLine(window, triangle.v1(), triangle.v2(), c);
+		drawModelTriangleLine(window, triangle.v2(), triangle.v0(), c);
 	}
 	/*----------*/
 	// CanvasTriangle triangle; // Debug triangle for white edge
