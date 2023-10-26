@@ -24,7 +24,10 @@
 #define MTLfilename "cornell-box.mtl"
 
 // Linear depthBuffer, 2D to 1D vector in float
-std::vector<float> depthBuffer(320 * 240, 0.0); // Initialisation of depthBuffer
+// std::vector<float> depthBuffer(320 * 240, 0.0); // Initialisation of depthBuffer
+
+// 2D depthBuffer
+float depthBuffer[WIDTH][HEIGHT];
 
 /*
 Notes for drawing 2D diagram:
@@ -878,8 +881,8 @@ CanvasPoint getCanvasIntersectionPoint(glm::vec3 cameraPosition, glm::vec3 verte
 	// If z(1/Z) is greater, it is close to camera
 	// If z(1/Z) is smaller, it is far from camera
 	// depth debug methods below
-	// point.depth = 1 / (vertexPosition.z - cameraPosition.z); // Normal, blue covers red
-	point.depth = 1 / - (vertexPosition.z - cameraPosition.z); // Red covers blue
+	// point.depth = 1 / (vertexPosition.z - cameraPosition.z);
+	point.depth = 1 / - (vertexPosition.z - cameraPosition.z);
 	return point;
 }
 
@@ -905,7 +908,7 @@ void drawPoint(DrawingWindow &window, CanvasPoint point) {
 }
 
 // Week 04 ModelTriangle
-std::vector<CanvasPoint> interpolationModelTriangleCanvasPoint(CanvasPoint from, CanvasPoint to, int numberOfSteps) {
+std::vector<CanvasPoint> interpolationModelTriangleCanvasPoint(CanvasPoint from, CanvasPoint to, float numberOfSteps) {
 	std::vector<CanvasPoint> coordinates;
 	float xDiff = to.x - from.x;
 	float yDiff = to.y - from.y;
@@ -929,11 +932,17 @@ void drawModelTriangleLine(DrawingWindow& window, CanvasPoint from, CanvasPoint 
 	float xStepSize = xDiff / numberOfSteps;
 	float yStepSize = yDiff / numberOfSteps;
 	float zStepSize = zDiff / numberOfSteps;
-	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
+	uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t
 	for (float i = 0.0; i < numberOfSteps; i++) {
 		float x = from.x + (xStepSize * i);
 		float y = from.y + (yStepSize * i);
 		float z = from.depth + (zStepSize * i);
+		size_t stdX = std::round(x);
+		size_t stdY = std::round(y);
+		if (z >= depthBuffer[stdX][stdY]) {
+			depthBuffer[stdX][stdY] = z;
+			window.setPixelColour(stdX, stdY, colour);
+		}
 		// window.setPixelColour(std::floor(x), std::floor(y), colour);
 		// window.setPixelColour(std::ceil(x), std::ceil(y), colour);
 		// --------------------
@@ -944,13 +953,13 @@ void drawModelTriangleLine(DrawingWindow& window, CanvasPoint from, CanvasPoint 
 		// 	depthBuffer[std::floor(a)] = z;
 		// 	window.setPixelColour(std::floor(x), std::floor(y), colour);
 		// }
-		float a = std::ceil(y) * WIDTH + std::ceil(x); // Index of depthBuffer, as depthBuffer is linear
-		if (z < depthBuffer[std::ceil(a)]) { // If z is small, it is far from camera, no update in depthBuffer
-			continue;
-		} else { // z >= depthBuffer[std::ceil(a)] // If z is equal to or greater than depthBuffer, record z and draw pixels
-			depthBuffer[std::ceil(a)] = z;
-			window.setPixelColour(std::ceil(x), std::ceil(y), colour);
-		}
+		// float a = std::ceil(y) * WIDTH + std::ceil(x); // Index of depthBuffer, as depthBuffer is linear
+		// if (z < depthBuffer[std::ceil(a)]) { // If z is small, it is far from camera, no update in depthBuffer
+		// 	continue;
+		// } else { // z >= depthBuffer[std::ceil(a)] // If z is equal to or greater than depthBuffer, record z and draw pixels
+		// 	depthBuffer[std::ceil(a)] = z;
+		// 	window.setPixelColour(std::ceil(x), std::ceil(y), colour);
+		// }
 		// --------------------
 	}
 }
@@ -958,9 +967,9 @@ void drawModelTriangleLine(DrawingWindow& window, CanvasPoint from, CanvasPoint 
 // Week 04 ModelTriangle
 void fillTopModelTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint middle, CanvasPoint extra, Colour c) {
 	std::vector<CanvasPoint> firstLine;
-	firstLine = interpolationModelTriangleCanvasPoint(top, middle, std::round(middle.y - top.y));
+	firstLine = interpolationModelTriangleCanvasPoint(top, middle, middle.y - top.y);
 	std::vector<CanvasPoint> secondLine;
-	secondLine = interpolationModelTriangleCanvasPoint(top, extra, std::round(extra.y - top.y));
+	secondLine = interpolationModelTriangleCanvasPoint(top, extra, extra.y - top.y);
 	for (size_t i = 0; i < firstLine.size(); i++) { // i < secondLine.size()
 		drawModelTriangleLine(window, firstLine[i], secondLine[i], c);
 	}
@@ -969,9 +978,9 @@ void fillTopModelTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint mi
 // Week 04 ModelTriangle
 void fillBottomModelTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint middle, CanvasPoint extra, Colour c) {
 	std::vector<CanvasPoint> firstLine;
-	firstLine = interpolationModelTriangleCanvasPoint(middle, bottom, std::round(bottom.y - middle.y));
+	firstLine = interpolationModelTriangleCanvasPoint(middle, bottom, bottom.y - middle.y);
 	std::vector<CanvasPoint> secondLine;
-	secondLine = interpolationModelTriangleCanvasPoint(extra, bottom, std::round(bottom.y - extra.y));
+	secondLine = interpolationModelTriangleCanvasPoint(extra, bottom, bottom.y - extra.y);
 	for (size_t i = 0; i < firstLine.size(); i++) { // i < secondLine.size()
 		drawModelTriangleLine(window, firstLine[i], secondLine[i], c);
 	}
@@ -1019,7 +1028,6 @@ int main(int argc, char* argv[]) {
 			drawPoint(window, point);
 		}
 	}
-
 	for (size_t i = 0; i < vecModel.size(); i++) {
 		vecColour.push_back(vecModel[i].colour); // Store colour
 	}
