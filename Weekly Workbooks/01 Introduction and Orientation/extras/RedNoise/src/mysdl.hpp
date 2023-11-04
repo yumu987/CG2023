@@ -16,10 +16,10 @@
 #include <unordered_map>
 #include <cmath>
 
-#define WIDTH 320
-#define HEIGHT 240
-#define HALFWIDTH 160
-#define HALFHEIGHT 120
+#define WIDTH 320 * 2
+#define HEIGHT 240 * 2
+#define HALFWIDTH 160 * 2
+#define HALFHEIGHT 120 * 2
 #define OBJfilename "cornell-box.obj"
 #define MTLfilename "cornell-box.mtl"
 
