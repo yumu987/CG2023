@@ -24,14 +24,25 @@
 #define MTLfilename "cornell-box.mtl"
 
 float depthBuffer[WIDTH][HEIGHT];
-glm::vec3 initialCameraPosition (0.0, 0.0, 4.0);
-float initialFocalLength = 2.0;
+glm::vec3 cameraPosition (0.0f, 0.0f, 4.0f);
+float focalLength = 2.0f;
 
 #ifndef MYMODEL_HPP
 #define MYMODEL_HPP
 
 class MyModel {
 public:
+    void resetModel() {
+        cameraPosition = glm::vec3(0.0f, 0.0f, 4.0f);
+        focalLength = 2.0f;
+    }
+    void resetDepthBuffer() {
+        for (size_t x = 0; x < WIDTH; x++) {
+            for (size_t y = 0; y < HEIGHT; y++) {
+                depthBuffer[x][y] = 0.0f;
+            }
+        }
+    }
     std::vector<CanvasPoint> interpolateElements(CanvasPoint from, CanvasPoint to, float numberOfSteps) {
         std::vector<CanvasPoint> coordinates;
         float xDiff = to.x - from.x;
@@ -94,7 +105,7 @@ public:
         float b = to.y - (m * to.x);
         if (xDiff == 0) { // Slope is 0
             // extra.x = from.x;
-            extra.x = to.x; // extra.x = from.x
+            extra.x = to.x;
         } else if (yDiff == 0) { // Slope is 0
             // extra.x = from.x;
             extra.x = to.x;
@@ -135,10 +146,12 @@ public:
             // Ensure that depth buffer has the same index implementation with draw pixel
             size_t stdX = std::round(x);
             size_t stdY = std::round(y);
-            if (z >= depthBuffer[stdX][stdY]) {
-                depthBuffer[stdX][stdY] = z; // Record depth buffer
-                window.setPixelColour(stdX, stdY, colour);
-            } // else {continue;}
+            if ((stdX < WIDTH) && (stdY < HEIGHT)) { // Fix the range to prevent out of range (overstep the boundary) / segmentation fault
+                if (z >= depthBuffer[stdX][stdY]) {
+                    depthBuffer[stdX][stdY] = z; // Record depth buffer
+                    window.setPixelColour(stdX, stdY, colour);
+                } // else {continue;}
+            }
         }
     }
     std::vector<ModelTriangle> getModelTriangle(std::vector<glm::vec3> vertices, std::vector<std::size_t> faces, std::vector<ModelTriangle> vecModel, Colour c) {
@@ -332,7 +345,7 @@ public:
         for (size_t i = 0; i < vecModel.size(); i++) {
             for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
                 glm::vec3 vertexPosition = vecModel[i].vertices[j];
-                CanvasPoint point = getCanvasIntersectionPoint(initialCameraPosition, vertexPosition, initialFocalLength);
+                CanvasPoint point = getCanvasIntersectionPoint(cameraPosition, vertexPosition, focalLength);
                 vecPoint.push_back(point); // Store canvas point
                 // drawPoint(window, point);
             }
@@ -370,7 +383,7 @@ public:
         for (size_t i = 0; i < vecModel.size(); i++) {
             for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
                 glm::vec3 vertexPosition = vecModel[i].vertices[j];
-                CanvasPoint point = getCanvasIntersectionPoint(initialCameraPosition, vertexPosition, initialFocalLength);
+                CanvasPoint point = getCanvasIntersectionPoint(cameraPosition, vertexPosition, focalLength);
                 vecPoint.push_back(point); // Store canvas point
                 // drawPoint(window, point);
             }
