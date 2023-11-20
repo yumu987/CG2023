@@ -15,8 +15,12 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cmath>
+#include <SDL.h>
+#include <RayTriangleIntersection.h>
 #include "mysdl.hpp"
 #include "mymodel.hpp"
+#include "myray.hpp"
+#include "mytexture.hpp"
 
 #define WIDTH 320 * 2
 #define HEIGHT 240 * 2
@@ -25,11 +29,12 @@
 #define OBJfilename "cornell-box.obj"
 #define MTLfilename "cornell-box.mtl"
 
-// State machine
+// Finite state machine
 enum class State {
     INIT, // initialRender
     WIREFRAME, // wireFrameRender
-    RASTERISED // rasterisedRender
+    RASTERISED, // rasterisedRender
+	RAYTRACING // ray tracing & shadows
 };
 
 // Initial state
@@ -41,17 +46,6 @@ State mode = State::INIT;
 // glm::vec3 cameraToVertex (3.0f, 4.0f, 5.0f);
 // glm::vec3 targetPoint (0.0f, 0.0f, 0.0f);
 // glm::vec3 upVector (0.0f, 1.0f, 0.0f);
-
-/*
-you need to have two variables to represent the camera: 
-cameraPosition (vec3) and a cameraOrientation (mat3). 
-Rotating the position of the camera involves multiplying the cameraPosition by a rotation matrix, 
-looking at a particular point requires you to change the cameraOrientation(and not the position)
-
-you need to calculate the required orientation matrix and 
-then multiple that with the camera-to-vertex vector - 
-see slides from the relevant section of the workbook
-*/
 
 /*
 Notes for drawing 2D diagram:
@@ -195,7 +189,8 @@ void draw(DrawingWindow& window) {
 			float red = 0.0;
 			float green = 0.0;
 			float blue = 0.0;
-			uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue);
+			// Pack colour into uint32_t (channel type: alpha + RGB) type: int
+			uint32_t colour = (255 << 24) + (int(red) << 16) + (int(green) << 8) + int(blue); // Alpha + Red + Green + Blue
 			window.setPixelColour(x, y, colour);
 		}
 	}
@@ -204,15 +199,14 @@ void draw(DrawingWindow& window) {
 void handleEvent(SDL_Event event, DrawingWindow& window) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) { // Camera left
+			std::cout << "LEFT" << std::endl;
 			if (mode == State::RASTERISED) {
-				std::cout << "LEFT" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + leftMatrix;
 				myModel.rasterisedRenderOrbit(window);
 			} else if (mode == State::WIREFRAME) {
-				std::cout << "LEFT" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
@@ -220,15 +214,14 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.wireFrameRenderOrbit(window);
 			}
 		} else if (event.key.keysym.sym == SDLK_RIGHT) {// Camera right
+			std::cout << "RIGHT" << std::endl;
 			if (mode == State::RASTERISED) {
-				std::cout << "RIGHT" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + rightMatrix;
 				myModel.rasterisedRenderOrbit(window);
 			} else if (mode == State::WIREFRAME) {
-				std::cout << "RIGHT" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
@@ -236,15 +229,14 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.wireFrameRenderOrbit(window);
 			}
 		} else if (event.key.keysym.sym == SDLK_UP) { // Camera up
+			std::cout << "UP" << std::endl;
 			if (mode == State::RASTERISED) {
-				std::cout << "UP" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + upMatrix;
 				myModel.rasterisedRenderOrbit(window);
 			} else if (mode == State::WIREFRAME) {
-				std::cout << "UP" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
@@ -252,15 +244,14 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.wireFrameRenderOrbit(window);
 			}
 		} else if (event.key.keysym.sym == SDLK_DOWN) { // Camera down
+			std::cout << "DOWN" << std::endl;
 			if (mode == State::RASTERISED) {
-				std::cout << "DOWN" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + downMatrix;
 				myModel.rasterisedRenderOrbit(window);
 			} else if (mode == State::WIREFRAME) {
-				std::cout << "DOWN" << std::endl;
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
@@ -295,7 +286,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				window.clearPixels();
 				MyModel myModel;
 				myModel.resetDepthBuffer();
-				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box
+				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box (box goes right)
 				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
 				myModel.rasterisedRenderOrbit(window);
 			} else if (mode == State::WIREFRAME) {
@@ -306,8 +297,10 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
 				myModel.wireFrameRenderOrbit(window);
 			}
-		} else if (event.key.keysym.sym == SDLK_g) { // g: test case
-			std::cout << "g" << "/" << "G" << ":" << "Test case" << std::endl;
+		} else if (event.key.keysym.sym == SDLK_g) { // g: reset ALL!
+			std::cout << "g" << "/" << "G" << ":" << "Reset all to black background!" << std::endl;
+			draw(window);
+			mode = State::INIT;
 		} else if (event.key.keysym.sym == SDLK_r) { // r: Reset model to rasterised
 			std::cout << "r" << "/" << "R" << ":" << "Reset to rasterised" << std::endl;
 			window.clearPixels();
@@ -438,7 +431,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			mode = State::RASTERISED;
 		}
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
-		std::cout << "Saved" << std::endl;
+		std::cout << "Saved!" << std::endl;
 		window.savePPM("output.ppm");
 		window.saveBMP("output.bmp");
 	}
@@ -447,12 +440,15 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 int main(int argc, char* argv[]) {
 	DrawingWindow window = DrawingWindow(WIDTH, HEIGHT, false);
 	SDL_Event event;
-	draw(window);
+	draw(window); // Initial render
 	MyModel myModel;
-	// Reset
+	// Reset depth buffer and model
 	myModel.resetDepthBuffer();
 	myModel.resetModel();
+	// Wireframe render
 	// myModel.wireFrameRenderOrbit(window); // Wireframe render with orbit
+	// mode = State::WIREFRAME;
+	// Rasterised render
 	myModel.rasterisedRenderOrbit(window); // Rasterised render with orbit
 	mode = State::RASTERISED;
 	while (true) {
@@ -461,4 +457,5 @@ int main(int argc, char* argv[]) {
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
 		window.renderFrame();
 	}
+	// return 0; // Not reachable
 }

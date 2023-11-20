@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cmath>
+#include <SDL.h>
+#include <RayTriangleIntersection.h>
 
 #define WIDTH 320 * 2
 #define HEIGHT 240 * 2
@@ -77,8 +79,11 @@ glm::mat3 outerProductIdentityMatrix = glm::mat3( // glm::mat3(1.0f)
 
 glm::mat3 cameraOrientation = outerProductIdentityMatrix; // Assign initial camera orientation matrix
 
-float zoomIn = 0.1;
-float zoomOut = -0.1;
+float zoomIn = 0.1f;
+float zoomOut = -0.1f;
+
+// Ray trace (light)
+glm::vec3 lightPosition = glm::vec3(0.0f, 0.8f, 0.0f);
 
 #ifndef MYMODEL_HPP
 #define MYMODEL_HPP
@@ -128,7 +133,11 @@ public:
         for (float i = 0.0; i < numberOfSteps; i++) {
             float x = from.x + (xStepSize * i);
             float y = from.y + (yStepSize * i);
-            window.setPixelColour(x, y, colour);
+            size_t stdX = std::round(x);
+            size_t stdY = std::round(y);
+            if ((stdX < WIDTH) && (stdY < HEIGHT)) { // Fix the range
+                window.setPixelColour(stdX, stdY, colour);
+            } // else {continue;}
         }
     }
     CanvasTriangle bubbleSort(CanvasTriangle triangle) {
@@ -201,9 +210,9 @@ public:
             size_t stdX = std::round(x);
             size_t stdY = std::round(y);
             if ((stdX < WIDTH) && (stdY < HEIGHT)) { // Fix the range to prevent out of range (overstep the boundary) / segmentation fault
-                if (z >= depthBuffer[stdX][stdY]) {
+                if (z >= depthBuffer[stdX][stdY]) { // Depth is larger than recorded depth
                     depthBuffer[stdX][stdY] = z; // Record depth buffer
-                    window.setPixelColour(stdX, stdY, colour);
+                    window.setPixelColour(stdX, stdY, colour); // Draw
                 } // else {continue;}
             }
         }
@@ -336,6 +345,9 @@ public:
         Multiplier: 240 (It can be adjusted)
         A single minus (-) is showed to change the direction of x
         Minus (-) will reverse the direction
+        Visual system:
+        [camera] -> [plane] -> [vertex]
+        distance    close       far
         */
         CanvasPoint point;
         float tmpX = vertexPosition.x - cameraPosition.x;
@@ -469,6 +481,27 @@ public:
     //--------------------
     // Orbit
     //--------------------
+    /*
+    glm::normalise: The normalize function is used to ensure that the vector has a length of 1.
+    Normalization is applied to ensure a unit length.
+    Normalise: Fix the range (length) -> [0] - [1]
+
+    glm::cross: The cross product gives a vector that is perpendicular to both input vectors.
+    Cross product:                          Visual version of diagram of cross product:
+            ^ perpendicular vector               ^
+            |                                    |    perpendicular vector
+            |                                    |
+        <-      vector 1                <--------|    vector 1
+            |                                   /
+            v vector 2                         /      vector 2
+                                              v
+    rotation matrix: right, up, forward
+                ^ up
+                |
+            <- forward
+                /
+               v right
+    */
     glm::mat3 lookAt(glm::vec3 eye, glm::vec3 target, glm::vec3 up) { // const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up
         glm::vec3 forwardV = glm::normalize(eye - target); // Forward
         glm::vec3 rightV = glm::normalize(glm::cross(up, forwardV)); // Right
@@ -489,10 +522,12 @@ public:
         cameraToVertex = vertex - camera
         adjustedVector = cameraToVertex * cameraOrientation
         Cross product (*)
+        The cross product gives a vector that is perpendicular to both input vectors.
+        [camera] -> [plane] -> [vertex]
         */
         CanvasPoint point;
-        glm::vec3 cameraToVertex (vertexPosition.x - cameraPosition.x, vertexPosition.y - cameraPosition.y, vertexPosition.z - cameraPosition.z);
-        glm::vec3 adjustedVector = cameraToVertex * cameraOrientation;
+        glm::vec3 cameraToVertex (vertexPosition.x - cameraPosition.x, vertexPosition.y - cameraPosition.y, vertexPosition.z - cameraPosition.z); // The distance between vertex and camera
+        glm::vec3 adjustedVector = cameraToVertex * cameraOrientation; // orientation of camera applied
         point.x = 160 * focalLength * ( - adjustedVector.x / adjustedVector.z) + HALFWIDTH;
         point.y = 160 * focalLength * (adjustedVector.y / adjustedVector.z) + HALFHEIGHT;
         point.depth = 1 / - adjustedVector.z;
@@ -549,6 +584,112 @@ public:
             for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
                 glm::vec3 vertexPosition = vecModel[i].vertices[j];
                 CanvasPoint point = getCanvasIntersectionPointOrbit(cameraPosition, vertexPosition, focalLength);
+                vecPoint.push_back(point); // Store canvas point
+                // drawPoint(window, point);
+            }
+        }
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            // Store colour
+            vecColour.push_back(vecModel[i].colour);
+        }
+        for (size_t i = 0; i < vecPoint.size(); i+=3) {
+            CanvasTriangle triangle;
+            Colour c;
+            // Extract points
+            triangle.v0() = vecPoint[i];
+            triangle.v1() = vecPoint[i+1];
+            triangle.v2() = vecPoint[i+2];
+            // Extract colour
+            c = vecColour[i/3];
+            // Draw triangle
+            filledModelTriangle(window, triangle, c);
+            // Draw edge
+            drawLineDepthBuffer(window, triangle.v0(), triangle.v1(), c);
+            drawLineDepthBuffer(window, triangle.v1(), triangle.v2(), c);
+            drawLineDepthBuffer(window, triangle.v2(), triangle.v0(), c);
+        }
+    }
+    //--------------------
+    // Ray Trace
+    //--------------------
+    RayTriangleIntersection getClosestIntersection(glm::vec3 cameraPosition, glm::vec3 rayDirection, std::vector<ModelTriangle> vecModel) {
+        RayTriangleIntersection rayTriangle;
+        // glm::vec3 ray = cameraPosition - rayDirection; // ray: camera to vertex
+        // ray = ray * cameraOrientation; // camera orientation
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            /*
+            [t]   [-dx][e0x][e1x]-1    [sx - p0x]
+            [u] = [-dy][e0y][e1y]   *  [sy - p0y]
+            [v]   [-dz][e0z][e1z]      [sz - p0z]
+            Another form:
+            [tuv] = inverse(DEMatrix) * SPVector
+            */
+            // glm::vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
+            // glm::vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
+            // glm::vec3 SPVector = cameraPosition - triangle.vertices[0];
+            // glm::mat3 DEMatrix(-rayDirection, e0, e1);
+            // glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
+            glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
+            glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
+            glm::vec3 SPVector = cameraPosition - vecModel[i].vertices[0];
+            glm::mat3 DEMatrix(-rayDirection, e0, e1); // (-ray, e0, e1)
+            glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
+            float t = possibleSolution.x;
+            float u = possibleSolution.y;
+            float v = possibleSolution.z;
+            /*
+                    [p1]
+
+                    r       [p2]
+
+            [p0]
+            r = p0 + u * (p1 - p0) + v * (p2 - p0)
+            */
+            //--------------------
+            // (u >= 0.0) && (u <= 1.0)
+            // (v >= 0.0) && (v <= 1.0)
+            // (u + v) <= 1.0
+            //--------------------
+            // position = startpoint + scalar * direction
+            glm::vec3 intersection = vecModel[i].vertices[0] + u * e0 + v * e1;
+            rayTriangle.intersectionPoint = intersection;
+        }
+        return rayTriangle;
+    }
+    // void drawRayTrace(DrawingWindow& window, std::vector<ModelTriangle> vecModel) {
+    //     //
+    // }
+    // bool isShadow(RayTriangleIntersection rayTriangle, std::vector<ModelTriangle> vecModel) {
+    //     //
+    // }
+    CanvasPoint getCanvasIntersectionPointOrbitRayTrace(glm::vec3 cameraPosition, glm::vec3 vertexPosition, float focalLength) {
+        /*
+        cameraToVertex = vertex - camera
+        adjustedVector = cameraToVertex * cameraOrientation
+        Cross product (*)
+        The cross product gives a vector that is perpendicular to both input vectors.
+        */
+        CanvasPoint point;
+        glm::vec3 cameraToVertex (vertexPosition.x - cameraPosition.x, vertexPosition.y - cameraPosition.y, vertexPosition.z - cameraPosition.z);
+        glm::vec3 adjustedVector = cameraToVertex * cameraOrientation;
+        point.x = 160 * focalLength * ( - adjustedVector.x / adjustedVector.z) + HALFWIDTH;
+        point.y = 160 * focalLength * (adjustedVector.y / adjustedVector.z) + HALFHEIGHT;
+        point.depth = 1 / - adjustedVector.z;
+        return point;
+    }
+    void rasterisedRenderOrbitRayTrace(DrawingWindow& window) {
+        // std::unordered_map<std::string, uint32_t> myMap;
+        std::unordered_map<std::string, std::vector<float>> myMap;
+        std::vector<ModelTriangle> vecModel; // 32
+        std::vector<CanvasPoint> vecPoint; // 96
+        std::vector<Colour> vecColour; // 32
+        myMap = readMTL(myMap);
+        vecModel = readOBJ(vecModel);
+        vecModel = updateModelTriangleColour(myMap, vecModel); // Map colour to vecModel
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
+                glm::vec3 vertexPosition = vecModel[i].vertices[j];
+                CanvasPoint point = getCanvasIntersectionPointOrbitRayTrace(cameraPosition, vertexPosition, focalLength);
                 vecPoint.push_back(point); // Store canvas point
                 // drawPoint(window, point);
             }

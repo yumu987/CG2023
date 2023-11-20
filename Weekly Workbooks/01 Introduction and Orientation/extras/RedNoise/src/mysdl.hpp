@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cmath>
+#include <SDL.h>
+#include <RayTriangleIntersection.h>
 
 #define WIDTH 320 * 2
 #define HEIGHT 240 * 2
