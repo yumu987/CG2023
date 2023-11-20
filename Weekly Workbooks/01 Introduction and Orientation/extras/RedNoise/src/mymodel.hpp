@@ -24,8 +24,61 @@
 #define MTLfilename "cornell-box.mtl"
 
 float depthBuffer[WIDTH][HEIGHT];
+
 glm::vec3 cameraPosition (0.0f, 0.0f, 4.0f);
 float focalLength = 2.0f;
+
+glm::vec3 targetPoint (0.0f, 0.0f, 0.0f);
+glm::vec3 upVector (0.0f, 1.0f, 0.0f);
+
+glm::vec3 upMatrix = glm::vec3(0.0f, -0.1f, 0.0f); // y-
+glm::vec3 downMatrix = glm::vec3(0.0f, 0.1f, 0.0f); // y+
+glm::vec3 rightMatrix = glm::vec3(-0.1f, 0.0f, 0.0f); // x-
+glm::vec3 leftMatrix = glm::vec3(0.1f, 0.0f, 0.0f); // x+
+
+int angleInDegrees = 1;
+double angleInRadians = angleInDegrees * (M_PI / 180); // radians = degrees * (M_PI / 180)
+
+glm::mat3 rotationMatrixX = glm::mat3( // X axis, left
+	glm::vec3(1.0f, 0.0f, 0.0f),
+	glm::vec3(0.0f, std::cos(angleInRadians), -std::sin(angleInRadians)),
+	glm::vec3(0.0f, std::sin(angleInRadians), std::cos(angleInRadians))
+);
+glm::mat3 rotationMatrixXX = glm::mat3( // X axis, right
+	glm::vec3(1.0f, 0.0f, 0.0f),
+	glm::vec3(0.0f, std::cos(angleInRadians), std::sin(angleInRadians)),
+	glm::vec3(0.0f, -std::sin(angleInRadians), std::cos(angleInRadians))
+);
+glm::mat3 rotationMatrixY = glm::mat3( // Y axis, up
+	glm::vec3(std::cos(angleInRadians), 0.0f, std::sin(angleInRadians)),
+	glm::vec3(0.0f, 1.0f, 0.0f),
+	glm::vec3(-std::sin(angleInRadians), 0.0f, std::cos(angleInRadians))
+);
+glm::mat3 rotationMatrixYY = glm::mat3( // Y axis, down
+	glm::vec3(std::cos(angleInRadians), 0.0f, -std::sin(angleInRadians)),
+	glm::vec3(0.0f, 1.0f, 0.0f),
+	glm::vec3(std::sin(angleInRadians), 0.0f, std::cos(angleInRadians))
+);
+glm::mat3 rotationMatrixZ = glm::mat3( // Z axis, but no need to implement
+	glm::vec3(std::cos(angleInRadians), -std::sin(angleInRadians), 0.0f),
+	glm::vec3(std::sin(angleInRadians), std::cos(angleInRadians), 0.0f),
+	glm::vec3(0.0f, 0.0f, 1.0f)
+);
+glm::mat3 innerProductIdentityMatrix = glm::mat3(
+	glm::vec3(1.0f, 1.0f, 1.0f),
+	glm::vec3(1.0f, 1.0f, 1.0f),
+	glm::vec3(1.0f, 1.0f, 1.0f)
+);
+glm::mat3 outerProductIdentityMatrix = glm::mat3( // glm::mat3(1.0f)
+	glm::vec3(1.0f, 0.0f, 0.0f),
+	glm::vec3(0.0f, 1.0f, 0.0f),
+	glm::vec3(0.0f, 0.0f, 1.0f)
+);
+
+glm::mat3 cameraOrientation = outerProductIdentityMatrix; // Assign initial camera orientation matrix
+
+float zoomIn = 0.1;
+float zoomOut = -0.1;
 
 #ifndef MYMODEL_HPP
 #define MYMODEL_HPP
@@ -33,8 +86,9 @@ float focalLength = 2.0f;
 class MyModel {
 public:
     void resetModel() {
-        cameraPosition = glm::vec3(0.0f, 0.0f, 4.0f);
-        focalLength = 2.0f;
+        cameraPosition = glm::vec3(0.0f, 0.0f, 4.0f); // Reset position
+        focalLength = 2.0f; // Reset focal length
+        cameraOrientation = outerProductIdentityMatrix; // Reset orientation
     }
     void resetDepthBuffer() {
         for (size_t x = 0; x < WIDTH; x++) {
@@ -284,11 +338,14 @@ public:
         Minus (-) will reverse the direction
         */
         CanvasPoint point;
-        point.x = 160 * focalLength * ( - (vertexPosition.x - cameraPosition.x) / (vertexPosition.z - cameraPosition.z)) + HALFWIDTH;
-        point.y = 160 * focalLength * ((vertexPosition.y - cameraPosition.y) / (vertexPosition.z - cameraPosition.z)) + HALFHEIGHT;
+        float tmpX = vertexPosition.x - cameraPosition.x;
+        float tmpY = vertexPosition.y - cameraPosition.y;
+        float tmpZ = vertexPosition.z - cameraPosition.z;
+        point.x = 160 * focalLength * ( - tmpX / tmpZ) + HALFWIDTH;
+        point.y = 160 * focalLength * (tmpY / tmpZ) + HALFHEIGHT;
         // If z(1/Z) is greater, it is close to camera
         // If z(1/Z) is smaller, it is far from camera
-        point.depth = 1 / - (vertexPosition.z - cameraPosition.z);
+        point.depth = 1 / - tmpZ;
         return point;
     }
     std::vector<ModelTriangle> updateModelTriangleColour(std::unordered_map<std::string, std::vector<float>> myMap, std::vector<ModelTriangle> vecModel) {
@@ -384,6 +441,114 @@ public:
             for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
                 glm::vec3 vertexPosition = vecModel[i].vertices[j];
                 CanvasPoint point = getCanvasIntersectionPoint(cameraPosition, vertexPosition, focalLength);
+                vecPoint.push_back(point); // Store canvas point
+                // drawPoint(window, point);
+            }
+        }
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            // Store colour
+            vecColour.push_back(vecModel[i].colour);
+        }
+        for (size_t i = 0; i < vecPoint.size(); i+=3) {
+            CanvasTriangle triangle;
+            Colour c;
+            // Extract points
+            triangle.v0() = vecPoint[i];
+            triangle.v1() = vecPoint[i+1];
+            triangle.v2() = vecPoint[i+2];
+            // Extract colour
+            c = vecColour[i/3];
+            // Draw triangle
+            filledModelTriangle(window, triangle, c);
+            // Draw edge
+            drawLineDepthBuffer(window, triangle.v0(), triangle.v1(), c);
+            drawLineDepthBuffer(window, triangle.v1(), triangle.v2(), c);
+            drawLineDepthBuffer(window, triangle.v2(), triangle.v0(), c);
+        }
+    }
+    //--------------------
+    // Orbit
+    //--------------------
+    glm::mat3 lookAt(glm::vec3 eye, glm::vec3 target, glm::vec3 up) { // const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up
+        glm::vec3 forwardV = glm::normalize(eye - target); // Forward
+        glm::vec3 rightV = glm::normalize(glm::cross(up, forwardV)); // Right
+        glm::vec3 upV = glm::normalize(glm::cross(forwardV, rightV)); // Up
+        // glm::mat3 rotationMatrix;
+        // rotationMatrix[0] = rightV;
+        // rotationMatrix[1] = upV;
+        // rotationMatrix[2] = forwardV;
+        glm::mat3 rotationMatrix = glm::mat3(
+            glm::vec3(rightV.x, rightV.y, rightV.z),
+            glm::vec3(upV.x, upV.y, upV.z),
+            glm::vec3(forwardV.x, forwardV.y, forwardV.z)
+        );
+        return rotationMatrix;
+    }
+    CanvasPoint getCanvasIntersectionPointOrbit(glm::vec3 cameraPosition, glm::vec3 vertexPosition, float focalLength) {
+        /*
+        cameraToVertex = vertex - camera
+        adjustedVector = cameraToVertex * cameraOrientation
+        Cross product (*)
+        */
+        CanvasPoint point;
+        glm::vec3 cameraToVertex (vertexPosition.x - cameraPosition.x, vertexPosition.y - cameraPosition.y, vertexPosition.z - cameraPosition.z);
+        glm::vec3 adjustedVector = cameraToVertex * cameraOrientation;
+        point.x = 160 * focalLength * ( - adjustedVector.x / adjustedVector.z) + HALFWIDTH;
+        point.y = 160 * focalLength * (adjustedVector.y / adjustedVector.z) + HALFHEIGHT;
+        point.depth = 1 / - adjustedVector.z;
+        return point;
+    }
+    void wireFrameRenderOrbit(DrawingWindow& window) {
+        // std::unordered_map<std::string, uint32_t> myMap;
+        std::unordered_map<std::string, std::vector<float>> myMap;
+        std::vector<ModelTriangle> vecModel; // 32
+        std::vector<CanvasPoint> vecPoint; // 96
+        std::vector<Colour> vecColour; // 32
+        myMap = readMTL(myMap);
+        vecModel = readOBJ(vecModel);
+        vecModel = updateModelTriangleColour(myMap, vecModel); // Map colour to vecModel
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
+                glm::vec3 vertexPosition = vecModel[i].vertices[j];
+                CanvasPoint point = getCanvasIntersectionPointOrbit(cameraPosition, vertexPosition, focalLength);
+                vecPoint.push_back(point); // Store canvas point
+                // drawPoint(window, point);
+            }
+        }
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            vecColour.push_back(vecModel[i].colour); // Store colour
+        }
+        for (size_t i = 0; i < vecPoint.size(); i+=3) {
+            CanvasTriangle triangle;
+            Colour c;
+            // Extract points
+            triangle.v0() = vecPoint[i];
+            triangle.v1() = vecPoint[i+1];
+            triangle.v2() = vecPoint[i+2];
+            // Extract colour
+            c = vecColour[i/3];
+            // Draw edge
+            drawLine(window, triangle.v0(), triangle.v1(), c);
+            drawLine(window, triangle.v1(), triangle.v2(), c);
+            drawLine(window, triangle.v2(), triangle.v0(), c);
+            // drawLineDepthBuffer(window, triangle.v0(), triangle.v1(), c);
+            // drawLineDepthBuffer(window, triangle.v1(), triangle.v2(), c);
+            // drawLineDepthBuffer(window, triangle.v2(), triangle.v0(), c);
+        }
+    }
+    void rasterisedRenderOrbit(DrawingWindow& window) {
+        // std::unordered_map<std::string, uint32_t> myMap;
+        std::unordered_map<std::string, std::vector<float>> myMap;
+        std::vector<ModelTriangle> vecModel; // 32
+        std::vector<CanvasPoint> vecPoint; // 96
+        std::vector<Colour> vecColour; // 32
+        myMap = readMTL(myMap);
+        vecModel = readOBJ(vecModel);
+        vecModel = updateModelTriangleColour(myMap, vecModel); // Map colour to vecModel
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            for (size_t j = 0; j < vecModel[i].vertices.size(); j++) {
+                glm::vec3 vertexPosition = vecModel[i].vertices[j];
+                CanvasPoint point = getCanvasIntersectionPointOrbit(cameraPosition, vertexPosition, focalLength);
                 vecPoint.push_back(point); // Store canvas point
                 // drawPoint(window, point);
             }

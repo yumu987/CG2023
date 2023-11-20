@@ -25,13 +25,33 @@
 #define OBJfilename "cornell-box.obj"
 #define MTLfilename "cornell-box.mtl"
 
+// State machine
+enum class State {
+    INIT, // initialRender
+    WIREFRAME, // wireFrameRender
+    RASTERISED // rasterisedRender
+};
+
+// Initial state
+State mode = State::INIT;
+
 // float depthBuffer[WIDTH][HEIGHT];
 // glm::vec3 cameraPosition (0.0f, 0.0f, 4.0f);
 // float focalLength = 2.0f;
 // glm::vec3 cameraToVertex (3.0f, 4.0f, 5.0f);
-// glm::vec3 targetPoint(-0.04830505f, 0.0039152836f, -0.0014743528f); // (0.0f, 0.0f, 0.0f)
-glm::vec3 targetPoint(0.0f, 0.0f, 0.0f);
-glm::vec3 upVector(0.0f, 1.0f, 0.0f);
+// glm::vec3 targetPoint (0.0f, 0.0f, 0.0f);
+// glm::vec3 upVector (0.0f, 1.0f, 0.0f);
+
+/*
+you need to have two variables to represent the camera: 
+cameraPosition (vec3) and a cameraOrientation (mat3). 
+Rotating the position of the camera involves multiplying the cameraPosition by a rotation matrix, 
+looking at a particular point requires you to change the cameraOrientation(and not the position)
+
+you need to calculate the required orientation matrix and 
+then multiple that with the camera-to-vertex vector - 
+see slides from the relevant section of the workbook
+*/
 
 /*
 Notes for drawing 2D diagram:
@@ -72,52 +92,50 @@ Gz = (z1 + z2 + z3) / 3
 The coordinate of center of mass of triangle: (Gx, Gy, Gz).
 */
 
-bool key = true; // Initial switch
+// glm::vec3 upMatrix = glm::vec3(0.0f, -0.1f, 0.0f); // y-
+// glm::vec3 downMatrix = glm::vec3(0.0f, 0.1f, 0.0f); // y+
+// glm::vec3 rightMatrix = glm::vec3(-0.1f, 0.0f, 0.0f); // x-
+// glm::vec3 leftMatrix = glm::vec3(0.1f, 0.0f, 0.0f); // x+
 
-glm::vec3 upMatrix = glm::vec3(0.0f, -0.1f, 0.0f); // y-
-glm::vec3 downMatrix = glm::vec3(0.0f, 0.1f, 0.0f); // y+
-glm::vec3 rightMatrix = glm::vec3(-0.1f, 0.0f, 0.0f); // x-
-glm::vec3 leftMatrix = glm::vec3(0.1f, 0.0f, 0.0f); // x+
+// int angleInDegrees = 1;
+// double angleInRadians = angleInDegrees * (M_PI / 180); // radians = degrees * (M_PI / 180)
 
-int angleInDegrees = 1;
-double angleInRadians = angleInDegrees * (M_PI / 180); // radians = degrees * (M_PI / 180)
+// glm::mat3 rotationMatrixX = glm::mat3( // X axis, left
+// 	glm::vec3(1.0f, 0.0f, 0.0f),
+// 	glm::vec3(0.0f, std::cos(angleInRadians), -std::sin(angleInRadians)),
+// 	glm::vec3(0.0f, std::sin(angleInRadians), std::cos(angleInRadians))
+// );
+// glm::mat3 rotationMatrixXX = glm::mat3( // X axis, right
+// 	glm::vec3(1.0f, 0.0f, 0.0f),
+// 	glm::vec3(0.0f, std::cos(angleInRadians), std::sin(angleInRadians)),
+// 	glm::vec3(0.0f, -std::sin(angleInRadians), std::cos(angleInRadians))
+// );
+// glm::mat3 rotationMatrixY = glm::mat3( // Y axis, up
+// 	glm::vec3(std::cos(angleInRadians), 0.0f, std::sin(angleInRadians)),
+// 	glm::vec3(0.0f, 1.0f, 0.0f),
+// 	glm::vec3(-std::sin(angleInRadians), 0.0f, std::cos(angleInRadians))
+// );
+// glm::mat3 rotationMatrixYY = glm::mat3( // Y axis, down
+// 	glm::vec3(std::cos(angleInRadians), 0.0f, -std::sin(angleInRadians)),
+// 	glm::vec3(0.0f, 1.0f, 0.0f),
+// 	glm::vec3(std::sin(angleInRadians), 0.0f, std::cos(angleInRadians))
+// );
 
-glm::mat3 rotationMatrixX = glm::mat3( // X axis, left
-	glm::vec3(1.0f, 0.0f, 0.0f),
-	glm::vec3(0.0f, std::cos(angleInRadians), -std::sin(angleInRadians)),
-	glm::vec3(0.0f, std::sin(angleInRadians), std::cos(angleInRadians))
-);
-glm::mat3 rotationMatrixXX = glm::mat3( // X axis, right
-	glm::vec3(1.0f, 0.0f, 0.0f),
-	glm::vec3(0.0f, std::cos(angleInRadians), std::sin(angleInRadians)),
-	glm::vec3(0.0f, -std::sin(angleInRadians), std::cos(angleInRadians))
-);
-glm::mat3 rotationMatrixY = glm::mat3( // Y axis, up
-	glm::vec3(std::cos(angleInRadians), 0.0f, std::sin(angleInRadians)),
-	glm::vec3(0.0f, 1.0f, 0.0f),
-	glm::vec3(-std::sin(angleInRadians), 0.0f, std::cos(angleInRadians))
-);
-glm::mat3 rotationMatrixYY = glm::mat3( // Y axis, down
-	glm::vec3(std::cos(angleInRadians), 0.0f, -std::sin(angleInRadians)),
-	glm::vec3(0.0f, 1.0f, 0.0f),
-	glm::vec3(std::sin(angleInRadians), 0.0f, std::cos(angleInRadians))
-);
-
-glm::mat3 rotationMatrixZ = glm::mat3( // Z axis, but no need to implement
-	glm::vec3(std::cos(angleInRadians), -std::sin(angleInRadians), 0.0f),
-	glm::vec3(std::sin(angleInRadians), std::cos(angleInRadians), 0.0f),
-	glm::vec3(0.0f, 0.0f, 1.0f)
-);
+// glm::mat3 rotationMatrixZ = glm::mat3( // Z axis, but no need to implement
+// 	glm::vec3(std::cos(angleInRadians), -std::sin(angleInRadians), 0.0f),
+// 	glm::vec3(std::sin(angleInRadians), std::cos(angleInRadians), 0.0f),
+// 	glm::vec3(0.0f, 0.0f, 1.0f)
+// );
 /*
 [1][2][3]
 [1][2][3] * (inner product) innerProductIdentityMatrix = inputMatrix (mapping multiplication)
 [1][2][3]
 */
-glm::mat3 innerProductIdentityMatrix = glm::mat3(
-	glm::vec3(1.0f, 1.0f, 1.0f),
-	glm::vec3(1.0f, 1.0f, 1.0f),
-	glm::vec3(1.0f, 1.0f, 1.0f)
-);
+// glm::mat3 innerProductIdentityMatrix = glm::mat3(
+// 	glm::vec3(1.0f, 1.0f, 1.0f),
+// 	glm::vec3(1.0f, 1.0f, 1.0f),
+// 	glm::vec3(1.0f, 1.0f, 1.0f)
+// );
 /*
 [1][2][3]
 [1][2][3] (*) (outer product) outerProductIdentityMatrix = inputMatrix
@@ -128,14 +146,13 @@ glm::mat3 innerProductIdentityMatrix = glm::mat3(
 [1][2][3]        |0| 0 1   [] [] []
                   -
 */
-glm::mat3 outerProductIdentityMatrix = glm::mat3( // glm::mat3(1.0f)
-	glm::vec3(1.0f, 0.0f, 0.0f),
-	glm::vec3(0.0f, 1.0f, 0.0f),
-	glm::vec3(0.0f, 0.0f, 1.0f)
-);
-
-float zoomIn = 0.1;
-float zoomOut = -0.1;
+// glm::mat3 outerProductIdentityMatrix = glm::mat3( // glm::mat3(1.0f)
+// 	glm::vec3(1.0f, 0.0f, 0.0f),
+// 	glm::vec3(0.0f, 1.0f, 0.0f),
+// 	glm::vec3(0.0f, 0.0f, 1.0f)
+// );
+// float zoomIn = 0.1;
+// float zoomOut = -0.1;
 
 std::vector<float> interpolateSingleFloats(float from, float to, float numberOfValues) {
 	std::vector<float> v;
@@ -170,18 +187,6 @@ std::vector<glm::vec3> interpolateThreeElementValues(glm::vec3 from, glm::vec3 t
 	return v;
 }
 
-glm::mat3 lookAt(glm::vec3 eye, glm::vec3 target, glm::vec3 up) { // const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up
-    glm::vec3 zaxis = glm::normalize(eye - target); // Forward
-    glm::vec3 xaxis = glm::normalize(glm::cross(up, zaxis)); // Right
-    glm::vec3 yaxis = glm::cross(zaxis, xaxis); // Up
-    glm::mat3 rotationMatrix = glm::mat3(
-        xaxis.x, yaxis.x, zaxis.x,
-        xaxis.y, yaxis.y, zaxis.y,
-        xaxis.z, yaxis.z, zaxis.z
-    );
-    return rotationMatrix;
-}
-
 void draw(DrawingWindow& window) {
 	window.clearPixels();
 	for (size_t y = 0; y < window.height; y++) {
@@ -199,33 +204,69 @@ void draw(DrawingWindow& window) {
 void handleEvent(SDL_Event event, DrawingWindow& window) {
 	if (event.type == SDL_KEYDOWN) {
 		if (event.key.keysym.sym == SDLK_LEFT) { // Camera left
-			std::cout << "LEFT" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition + leftMatrix;
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				std::cout << "LEFT" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + leftMatrix;
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				std::cout << "LEFT" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + leftMatrix;
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_RIGHT) {// Camera right
-			std::cout << "RIGHT" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition + rightMatrix;
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				std::cout << "RIGHT" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + rightMatrix;
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				std::cout << "RIGHT" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + rightMatrix;
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_UP) { // Camera up
-			std::cout << "UP" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition + upMatrix;
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				std::cout << "UP" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + upMatrix;
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				std::cout << "UP" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + upMatrix;
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_DOWN) { // Camera down
-			std::cout << "DOWN" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition + downMatrix;
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				std::cout << "DOWN" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + downMatrix;
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				std::cout << "DOWN" << std::endl;
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition + downMatrix;
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_u) { // u: Draw random stroked (unfilled) triangle
 			std::cout << "u" << "/" << "U" << ":" << "Stroked triangle" << std::endl;
 			MySDL mySDL;
@@ -240,8 +281,6 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			mySDL.filledTriangle(window, triangle, c);
 		} else if (event.key.keysym.sym == SDLK_o) { // o: Orbit model
 			std::cout << "o" << "/" << "O" << ":" << "Orbit" << std::endl;
-			// A bool can be used to judge orbit or not...
-			// key = -key;
 			/*
 							[camera]->
 				^
@@ -252,75 +291,154 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 						<-[camera]
 
 			*/
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition * rotationMatrixYY; // Model goes right, camera goes left
-			glm::mat3 rotationMatrix = lookAt(cameraPosition, targetPoint, upVector);
-			cameraPosition = cameraPosition * rotationMatrix;
-			myModel.rasterisedRender(window);
-		} else if (event.key.keysym.sym == SDLK_g) { // g
-			std::cout << "g" << "/" << "G" << ":" << "Test: Z axis" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition * rotationMatrixZ;
-			myModel.rasterisedRender(window);
-		} else if (event.key.keysym.sym == SDLK_r) { // r: Reset model
-			std::cout << "r" << "/" << "R" << ":" << "Reset" << std::endl;
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box
+				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box
+				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
+				myModel.wireFrameRenderOrbit(window);
+			}
+		} else if (event.key.keysym.sym == SDLK_g) { // g: test case
+			std::cout << "g" << "/" << "G" << ":" << "Test case" << std::endl;
+		} else if (event.key.keysym.sym == SDLK_r) { // r: Reset model to rasterised
+			std::cout << "r" << "/" << "R" << ":" << "Reset to rasterised" << std::endl;
 			window.clearPixels();
 			MyModel myModel;
 			myModel.resetDepthBuffer();
 			myModel.resetModel();
-			myModel.rasterisedRender(window);
+			myModel.rasterisedRenderOrbit(window);
+			mode = State::RASTERISED;
+		} else if (event.key.keysym.sym == SDLK_t) { // t: Reset model to wireframe
+			std::cout << "t" << "/" << "T" << ":" << "Reset to wireframe" << std::endl;
+			window.clearPixels();
+			MyModel myModel;
+			myModel.resetDepthBuffer();
+			myModel.resetModel();
+			myModel.wireFrameRenderOrbit(window);
+			mode = State::WIREFRAME;
 		} else if (event.key.keysym.sym == SDLK_z) { // z: Zoom in
 			std::cout << "z" << "/" << "Z" << ":" << "Zoom in" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			focalLength = focalLength + zoomIn;
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				focalLength = focalLength + zoomIn;
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				focalLength = focalLength + zoomIn;
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_x) { // x: Zoom out
 			std::cout << "x" << "/" << "X" << ":" << "Zoom out" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			focalLength = focalLength + zoomOut;
-			if (focalLength >= 0.0f) { // Normal model
-				myModel.rasterisedRender(window);
-			} else { // Disappeared model / Reversed model disabled
-				std::cout << "Disappeared model disabled | Reversed model disabled" << std::endl;
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				focalLength = focalLength + zoomOut;
+				if (focalLength >= 0.0f) { // Normal model
+					myModel.rasterisedRenderOrbit(window);
+				} else { // Disappeared model / Reversed model disabled
+					std::cout << "Disappeared model disabled | Reversed model disabled" << std::endl;
+				}
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				focalLength = focalLength + zoomOut;
+				if (focalLength >= 0.0f) { // Normal model
+					myModel.wireFrameRenderOrbit(window);
+				} else { // Disappeared model / Reversed model disabled
+					std::cout << "Disappeared model disabled | Reversed model disabled" << std::endl;
+				}
 			}
 		} else if (event.key.keysym.sym == SDLK_a) { // Rotating the camera in the Y axis (panning)
 			std::cout << "a" << "/" << "A" << ":" << "Panning: Y axis LEFT" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition * rotationMatrixY; // Left
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixY; // Left
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixY; // Left
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_d) { // Rotating the camera in the Y axis (panning)
 			std::cout << "d" << "/" << "D" << ":" << "Panning: Y axis RIGHT" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition * rotationMatrixYY; // Right
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixYY; // Right
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixYY; // Right
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_w) { // Rotating the camera in the X axis (tilting)
 			std::cout << "w" << "/" << "W" << ":" << "Tilting: X axis UP" << std::endl;
-			window.clearPixels();
-			MyModel myModel;
-			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition * rotationMatrixX; // Up
-			myModel.rasterisedRender(window);
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixX; // Up
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixX; // Up
+				myModel.wireFrameRenderOrbit(window);
+			}
 		} else if (event.key.keysym.sym == SDLK_s) { // Rotating the camera in the X axis (tilting)
 			std::cout << "s" << "/" << "S" << ":" << "Tilting: X axis DOWN" << std::endl;
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixXX; // Down
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixXX; // Down
+				myModel.wireFrameRenderOrbit(window);
+			}
+		} else if (event.key.keysym.sym == SDLK_1) {
+			std::cout << "1" << ":" << "WireFrameRender" << std::endl;
 			window.clearPixels();
 			MyModel myModel;
 			myModel.resetDepthBuffer();
-			cameraPosition = cameraPosition * rotationMatrixXX; // Down
-			myModel.rasterisedRender(window);
+			myModel.wireFrameRenderOrbit(window);
+			mode = State::WIREFRAME;
+		} else if (event.key.keysym.sym == SDLK_2) {
+			std::cout << "2" << ":" << "RasterisedRender" << std::endl;
+			window.clearPixels();
+			MyModel myModel;
+			myModel.resetDepthBuffer();
+			myModel.rasterisedRenderOrbit(window);
+			mode = State::RASTERISED;
 		}
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+		std::cout << "Saved" << std::endl;
 		window.savePPM("output.ppm");
 		window.saveBMP("output.bmp");
 	}
@@ -331,14 +449,13 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 	draw(window);
 	MyModel myModel;
-	// myModel.wireFrameRender(window); // Wireframe render
-	myModel.rasterisedRender(window); // Rasterised render
+	// Reset
+	myModel.resetDepthBuffer();
+	myModel.resetModel();
+	// myModel.wireFrameRenderOrbit(window); // Wireframe render with orbit
+	myModel.rasterisedRenderOrbit(window); // Rasterised render with orbit
+	mode = State::RASTERISED;
 	while (true) {
-		// if (key == true) {
-		// 	// orbit
-		// } else { // key == false
-		// 	// stop orbit
-		// }
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) handleEvent(event, window);
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
