@@ -29,7 +29,7 @@
 #define OBJfilename "cornell-box.obj"
 #define MTLfilename "cornell-box.mtl"
 
-// Finite state machine
+// Finite state machine of rendering modes
 enum class State {
     INIT, // initialRender
     WIREFRAME, // wireFrameRender
@@ -37,8 +37,17 @@ enum class State {
 	RAYTRACING // ray tracing & shadows
 };
 
+// Finite state machine of orbit
+enum class Orb {
+	OFF, // off
+	ON // on
+};
+
 // Initial state
 State mode = State::INIT;
+
+// Initial state
+Orb orbMode = Orb::OFF;
 
 // float depthBuffer[WIDTH][HEIGHT];
 // glm::vec3 cameraPosition (0.0f, 0.0f, 4.0f);
@@ -212,6 +221,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + leftMatrix;
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_RIGHT) {// Camera right
 			std::cout << "RIGHT" << std::endl;
@@ -227,6 +238,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + rightMatrix;
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_UP) { // Camera up
 			std::cout << "UP" << std::endl;
@@ -242,6 +255,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + upMatrix;
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_DOWN) { // Camera down
 			std::cout << "DOWN" << std::endl;
@@ -257,6 +272,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition + downMatrix;
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_u) { // u: Draw random stroked (unfilled) triangle
 			std::cout << "u" << "/" << "U" << ":" << "Stroked triangle" << std::endl;
@@ -270,8 +287,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			CanvasTriangle triangle;
 			Colour c;
 			mySDL.filledTriangle(window, triangle, c);
-		} else if (event.key.keysym.sym == SDLK_o) { // o: Orbit model
-			std::cout << "o" << "/" << "O" << ":" << "Orbit" << std::endl;
+		} else if (event.key.keysym.sym == SDLK_o) { // o: Orbit model (switch to control ON / OFF)
 			/*
 							[camera]->
 				^
@@ -282,25 +298,18 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 						<-[camera]
 
 			*/
-			if (mode == State::RASTERISED) {
-				window.clearPixels();
-				MyModel myModel;
-				myModel.resetDepthBuffer();
-				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box (box goes right)
-				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
-				myModel.rasterisedRenderOrbit(window);
-			} else if (mode == State::WIREFRAME) {
-				window.clearPixels();
-				MyModel myModel;
-				myModel.resetDepthBuffer();
-				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box
-				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
-				myModel.wireFrameRenderOrbit(window);
+			if (orbMode == Orb::ON) {
+				std::cout << "o" << "/" << "O" << ":" << "Orbit: turn off!" << std::endl;
+				orbMode = Orb::OFF;
+			} else if (orbMode == Orb::OFF) {
+				std::cout << "o" << "/" << "O" << ":" << "Orbit: turn on!" << std::endl;
+				orbMode = Orb::ON;
 			}
 		} else if (event.key.keysym.sym == SDLK_g) { // g: reset ALL!
 			std::cout << "g" << "/" << "G" << ":" << "Reset all to black background!" << std::endl;
 			draw(window);
 			mode = State::INIT;
+			orbMode = Orb::OFF;
 		} else if (event.key.keysym.sym == SDLK_r) { // r: Reset model to rasterised
 			std::cout << "r" << "/" << "R" << ":" << "Reset to rasterised" << std::endl;
 			window.clearPixels();
@@ -309,6 +318,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			myModel.resetModel();
 			myModel.rasterisedRenderOrbit(window);
 			mode = State::RASTERISED;
+			orbMode = Orb::OFF;
 		} else if (event.key.keysym.sym == SDLK_t) { // t: Reset model to wireframe
 			std::cout << "t" << "/" << "T" << ":" << "Reset to wireframe" << std::endl;
 			window.clearPixels();
@@ -317,6 +327,7 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			myModel.resetModel();
 			myModel.wireFrameRenderOrbit(window);
 			mode = State::WIREFRAME;
+			orbMode = Orb::OFF;
 		} else if (event.key.keysym.sym == SDLK_z) { // z: Zoom in
 			std::cout << "z" << "/" << "Z" << ":" << "Zoom in" << std::endl;
 			if (mode == State::RASTERISED) {
@@ -331,6 +342,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				focalLength = focalLength + zoomIn;
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_x) { // x: Zoom out
 			std::cout << "x" << "/" << "X" << ":" << "Zoom out" << std::endl;
@@ -354,6 +367,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				} else { // Disappeared model / Reversed model disabled
 					std::cout << "Disappeared model disabled | Reversed model disabled" << std::endl;
 				}
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_a) { // Rotating the camera in the Y axis (panning)
 			std::cout << "a" << "/" << "A" << ":" << "Panning: Y axis LEFT" << std::endl;
@@ -369,6 +384,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition * rotationMatrixY; // Left
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_d) { // Rotating the camera in the Y axis (panning)
 			std::cout << "d" << "/" << "D" << ":" << "Panning: Y axis RIGHT" << std::endl;
@@ -384,6 +401,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition * rotationMatrixYY; // Right
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_w) { // Rotating the camera in the X axis (tilting)
 			std::cout << "w" << "/" << "W" << ":" << "Tilting: X axis UP" << std::endl;
@@ -399,6 +418,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition * rotationMatrixX; // Up
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_s) { // Rotating the camera in the X axis (tilting)
 			std::cout << "s" << "/" << "S" << ":" << "Tilting: X axis DOWN" << std::endl;
@@ -414,6 +435,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 				myModel.resetDepthBuffer();
 				cameraPosition = cameraPosition * rotationMatrixXX; // Down
 				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
 			}
 		} else if (event.key.keysym.sym == SDLK_1) {
 			std::cout << "1" << ":" << "WireFrameRender" << std::endl;
@@ -429,6 +452,8 @@ void handleEvent(SDL_Event event, DrawingWindow& window) {
 			myModel.resetDepthBuffer();
 			myModel.rasterisedRenderOrbit(window);
 			mode = State::RASTERISED;
+		} else if (event.key.keysym.sym == SDLK_3) {
+			std::cout << "3" << ":" << "RayTraceRender" << std::endl;
 		}
 	} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 		std::cout << "Saved!" << std::endl;
@@ -449,9 +474,32 @@ int main(int argc, char* argv[]) {
 	// myModel.wireFrameRenderOrbit(window); // Wireframe render with orbit
 	// mode = State::WIREFRAME;
 	// Rasterised render
-	myModel.rasterisedRenderOrbit(window); // Rasterised render with orbit
-	mode = State::RASTERISED;
+	// myModel.rasterisedRenderOrbit(window); // Rasterised render with orbit
+	// mode = State::RASTERISED;
+	// Raytrace render
+	myModel.drawRasterisedScene(window); // Ray trace render with orbit
+	mode = State::RAYTRACING;
 	while (true) {
+		// Orbit
+		if (orbMode == Orb::ON) {
+			if (mode == State::RASTERISED) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box (box goes right)
+				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
+				myModel.rasterisedRenderOrbit(window);
+			} else if (mode == State::WIREFRAME) {
+				window.clearPixels();
+				MyModel myModel;
+				myModel.resetDepthBuffer();
+				cameraPosition = cameraPosition * rotationMatrixYY; // Move camera towards left of the box
+				cameraOrientation = myModel.lookAt(cameraPosition, targetPoint, upVector); // Let camera focus on the centre
+				myModel.wireFrameRenderOrbit(window);
+			} else if (mode == State::RAYTRACING) {
+				// Ray tracing
+			}
+		}
 		// We MUST poll for events - otherwise the window will freeze !
 		if (window.pollForInputEvents(event)) handleEvent(event, window);
 		// Need to render the frame at the end, or nothing actually gets shown on the screen !
