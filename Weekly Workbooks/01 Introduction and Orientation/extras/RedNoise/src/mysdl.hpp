@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cmath>
+#include <map>
 #include <SDL.h>
 #include <RayTriangleIntersection.h>
 

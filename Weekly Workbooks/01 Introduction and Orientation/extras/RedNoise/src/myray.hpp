@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cmath>
+#include <map>
 #include <SDL.h>
 #include <RayTriangleIntersection.h>
 
@@ -113,107 +114,117 @@ intersects with the current triangle
 	
 7.Use the colour of the closest validly intersected triangle to colour that current pixel
     */
-    RayTriangleIntersection getClosestIntersection(glm::vec3 cameraPosition, glm::vec3 rayDirection, std::vector<ModelTriangle> vecModel) {
-        RayTriangleIntersection rayTriangle;
-        rayTriangle.distanceFromCamera = std::numeric_limits<float>::infinity(); // positive infinity
-        // -std::numeric_limits<float>::infinity(); // negative infinity
-        glm::vec3 ray = cameraPosition - rayDirection; // ray: camera to vertex
-        ray = ray * cameraOrientation; // camera orientation applies to ray
-        for (size_t i = 0; i < vecModel.size(); i++) {
-            /*
-            [t]   [-dx][e0x][e1x]-1    [sx - p0x]
-            [u] = [-dy][e0y][e1y]   *  [sy - p0y]
-            [v]   [-dz][e0z][e1z]      [sz - p0z]
-            Another form:
-            [tuv] = inverse(DEMatrix) * SPVector
-            */
-            // glm::vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
-            // glm::vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
-            // glm::vec3 SPVector = cameraPosition - triangle.vertices[0];
-            // glm::mat3 DEMatrix(-rayDirection, e0, e1);
-            // glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
-            glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
-            glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
-            glm::vec3 SPVector = cameraPosition - vecModel[i].vertices[0];
-            glm::mat3 DEMatrix(-ray, e0, e1); // (-rayDirection, e0, e1)
-            glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
-            float t = possibleSolution.x;
-            float u = possibleSolution.y;
-            float v = possibleSolution.z;
-            /*
-                    [p1]
 
-                    r       [p2]
+    // RayTriangleIntersection getClosestIntersection(glm::vec3 cameraPosition, glm::vec3 rayDirection, std::vector<ModelTriangle> vecModel) {
+    //     RayTriangleIntersection rayTriangle;
+    //     rayTriangle.distanceFromCamera = std::numeric_limits<float>::infinity(); // positive infinity
+    //     // -std::numeric_limits<float>::infinity(); // negative infinity
+    //     glm::vec3 ray = cameraPosition - rayDirection; // ray: camera to vertex
+    //     ray = ray * cameraOrientation; // camera orientation applies to ray
+    //     for (size_t i = 0; i < vecModel.size(); i++) {
+    //         /*
+    //         [t]   [-dx][e0x][e1x]-1    [sx - p0x]
+    //         [u] = [-dy][e0y][e1y]   *  [sy - p0y]
+    //         [v]   [-dz][e0z][e1z]      [sz - p0z]
+    //         Another form:
+    //         [tuv] = inverse(DEMatrix) * SPVector
+    //         */
+    //         // glm::vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
+    //         // glm::vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
+    //         // glm::vec3 SPVector = cameraPosition - triangle.vertices[0];
+    //         // glm::mat3 DEMatrix(-rayDirection, e0, e1);
+    //         // glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
+    //         glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
+    //         glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
+    //         glm::vec3 SPVector = cameraPosition - vecModel[i].vertices[0];
+    //         glm::mat3 DEMatrix(-ray, e0, e1); // (-rayDirection, e0, e1)
+    //         glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
+    //         float t = possibleSolution.x;
+    //         float u = possibleSolution.y;
+    //         float v = possibleSolution.z;
+    //         /*
+    //                 [p1]
 
-            [p0]
-            r = p0 + u * (p1 - p0) + v * (p2 - p0)
-            */
-            //--------------------
-            // (u >= 0.0) && (u <= 1.0)
-            // (v >= 0.0) && (v <= 1.0)
-            // (u + v) <= 1.0
-            //--------------------
-            // position = startpoint + scalar * direction
-            if (((u >= 0.0) && (u <= 1.0)) && ((v >= 0.0) && (v <= 1.0)) && ((u + v) <= 1.0)) { // validation process
-                if ((rayTriangle.distanceFromCamera > t) && (t > 0)) {
-                    rayTriangle.distanceFromCamera = t;
-                    rayTriangle.intersectedTriangle = vecModel[i];
-                    rayTriangle.triangleIndex = i;
-                    glm::vec3 intersection = vecModel[i].vertices[0] + u * e0 + v * e1;
-                    rayTriangle.intersectionPoint = intersection;
-                }
-            }
-        }
-        return rayTriangle;
-    }
-    bool isShadow(RayTriangleIntersection rayTriangle, std::vector<ModelTriangle> vecModel) {
-        // (0.0, 0.8, 0.0) - (x, y, z)
-        glm::vec3 shadowRay = lightPosition - rayTriangle.intersectionPoint; // light - intersection point
-        for (size_t i = 0; i < vecModel.size(); i++) {
+    //                 r       [p2]
 
-            glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
-            glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
-            glm::vec3 SPVector = rayTriangle.intersectionPoint - vecModel[i].vertices[0];
-            glm::mat3 DEMatrix(-glm::normalize(shadowRay), e0, e1); // (-ray, e0, e1)
-            glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
-            float t = possibleSolution.x;
-            float u = possibleSolution.y;
-            float v = possibleSolution.z;
+    //         [p0]
+    //         r = p0 + u * (p1 - p0) + v * (p2 - p0)
+    //         */
+    //         //--------------------
+    //         // (u >= 0.0) && (u <= 1.0)
+    //         // (v >= 0.0) && (v <= 1.0)
+    //         // (u + v) <= 1.0
+    //         //--------------------
+    //         // position = startpoint + scalar * direction
+    //         if (((u >= 0.0) && (u <= 1.0)) && ((v >= 0.0) && (v <= 1.0)) && ((u + v) <= 1.0)) { // validation process
+    //             if ((rayTriangle.distanceFromCamera > t) && (t > 0)) {
+    //                 rayTriangle.distanceFromCamera = t;
+    //                 rayTriangle.intersectedTriangle = vecModel[i];
+    //                 rayTriangle.triangleIndex = i;
+    //                 glm::vec3 intersection = vecModel[i].vertices[0] + u * e0 + v * e1;
+    //                 rayTriangle.intersectionPoint = intersection;
+    //             }
+    //         }
+    //     }
+    //     return rayTriangle;
+    // }
+    // bool isShadow(RayTriangleIntersection rayTriangle, std::vector<ModelTriangle> vecModel) {
+    //     // (0.0, 0.8, 0.0) - (x, y, z)
+    //     glm::vec3 shadowRay = lightPosition - rayTriangle.intersectionPoint; // light - intersection point
+    //     for (size_t i = 0; i < vecModel.size(); i++) {
 
-            if (((u >= 0.0) && (u <= 1.0)) && ((v >= 0.0) && (v <= 1.0)) && ((u + v) <= 1.0)) { // validation process
-                if ((t < glm::length(shadowRay)) && (t > 0.01) && (i != rayTriangle.triangleIndex)) { // light intersects with canvas
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    void drawRayTrace(DrawingWindow& window, std::vector<ModelTriangle> vecModel) {
-        for (size_t y = 0; y < window.height; y++) {
-            for (size_t x = 0; x < window.width; x++) {
-                /* Index:
-                [x] [y] [focalLength]
-                rayDirection = -x, y, focalLength
-                */
-                glm::vec3 rayDirection = glm::vec3(-(x - HALFWIDTH), y - HALFHEIGHT, focalLength);
-                RayTriangleIntersection rayTriangle = getClosestIntersection(cameraPosition, rayDirection, vecModel);
-                if (!isinf(rayTriangle.distanceFromCamera)) { // distance from camera is not infinite
-                    if (isShadow(rayTriangle, vecModel)) { // isShadow(rayTriangle, vecModel) == true
-                        // Dark shadow
-                        uint32_t colour = (255 << 24) + (0 << 16) + (0 << 8) + 0; // Alpha + Red + Green + Blue
-                        // size_t stdX = std::round(x);
-                        // size_t stdY = std::round(y);
-                        // if ((stdX < WIDTH) && (stdY < HEIGHT)) { // Fix the range
-                        //     window.setPixelColour(stdX, stdY, colour);
-                        // }
-                        window.setPixelColour(x, y, colour);
-                    } else { // isShadow(rayTriangle, vecModel) != true
-                        // Normal rasterised render output...
-                    }
-                }
-            }
-        }
-    }
+    //         glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
+    //         glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
+    //         glm::vec3 SPVector = rayTriangle.intersectionPoint - vecModel[i].vertices[0];
+    //         glm::mat3 DEMatrix(-glm::normalize(shadowRay), e0, e1); // (-ray, e0, e1)
+    //         glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
+    //         float t = possibleSolution.x;
+    //         float u = possibleSolution.y;
+    //         float v = possibleSolution.z;
+
+    //         if (((u >= 0.0) && (u <= 1.0)) && ((v >= 0.0) && (v <= 1.0)) && ((u + v) <= 1.0)) { // validation process
+    //             if ((t < glm::length(shadowRay)) && (t > 0.01) && (i != rayTriangle.triangleIndex)) { // light intersects with canvas
+    //                 return true;
+    //             }
+    //         }
+    //     }
+    //     return false;
+    // }
+    // void drawRayTrace(DrawingWindow& window, std::vector<ModelTriangle> vecModel) {
+    //     for (size_t y = 0; y < window.height; y++) {
+    //         for (size_t x = 0; x < window.width; x++) {
+    //             /* Index:
+    //             [x] [y] [focalLength]
+    //             rayDirection = -x, y, focalLength
+    //             */
+    //             glm::vec3 rayDirection = glm::vec3(-(x - HALFWIDTH), y - HALFHEIGHT, focalLength);
+    //             RayTriangleIntersection rayTriangle = getClosestIntersection(cameraPosition, rayDirection, vecModel);
+    //             if (!isinf(rayTriangle.distanceFromCamera)) { // distance from camera is not infinite
+    //                 if (isShadow(rayTriangle, vecModel)) { // isShadow(rayTriangle, vecModel) == true
+    //                     // Dark shadow
+    //                     uint32_t colour = (255 << 24) + (0 << 16) + (0 << 8) + 0; // Alpha + Red + Green + Blue
+    //                     // size_t stdX = std::round(x);
+    //                     // size_t stdY = std::round(y);
+    //                     // if ((stdX < WIDTH) && (stdY < HEIGHT)) { // Fix the range
+    //                     //     window.setPixelColour(stdX, stdY, colour);
+    //                     // }
+    //                     window.setPixelColour(x, y, colour);
+    //                 } else { // isShadow(rayTriangle, vecModel) != true
+    //                     // Normal rasterised render output...
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    /*
+    In ray trace task, it simulates the physical phenomenon.
+    All scene we see is a reflection of light. Light carries colour,
+    and it reflects to human eyes.
+    1. Find ray direction from camera/eye to the canvas. Inverse to getCanvasIntersectionPoint.
+    2. Find the intersection point between camera and canvas.
+    3. According to triangles of intersection point, draw it on the canvas.
+    */
 };
 
 #endif
