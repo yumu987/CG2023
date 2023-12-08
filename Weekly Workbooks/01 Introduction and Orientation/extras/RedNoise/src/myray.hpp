@@ -115,116 +115,174 @@ intersects with the current triangle
 7.Use the colour of the closest validly intersected triangle to colour that current pixel
     */
 
-    // RayTriangleIntersection getClosestIntersection(glm::vec3 cameraPosition, glm::vec3 rayDirection, std::vector<ModelTriangle> vecModel) {
-    //     RayTriangleIntersection rayTriangle;
-    //     rayTriangle.distanceFromCamera = std::numeric_limits<float>::infinity(); // positive infinity
-    //     // -std::numeric_limits<float>::infinity(); // negative infinity
-    //     glm::vec3 ray = cameraPosition - rayDirection; // ray: camera to vertex
-    //     ray = ray * cameraOrientation; // camera orientation applies to ray
-    //     for (size_t i = 0; i < vecModel.size(); i++) {
-    //         /*
-    //         [t]   [-dx][e0x][e1x]-1    [sx - p0x]
-    //         [u] = [-dy][e0y][e1y]   *  [sy - p0y]
-    //         [v]   [-dz][e0z][e1z]      [sz - p0z]
-    //         Another form:
-    //         [tuv] = inverse(DEMatrix) * SPVector
-    //         */
-    //         // glm::vec3 e0 = triangle.vertices[1] - triangle.vertices[0];
-    //         // glm::vec3 e1 = triangle.vertices[2] - triangle.vertices[0];
-    //         // glm::vec3 SPVector = cameraPosition - triangle.vertices[0];
-    //         // glm::mat3 DEMatrix(-rayDirection, e0, e1);
-    //         // glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector;
-    //         glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
-    //         glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
-    //         glm::vec3 SPVector = cameraPosition - vecModel[i].vertices[0];
-    //         glm::mat3 DEMatrix(-ray, e0, e1); // (-rayDirection, e0, e1)
-    //         glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
-    //         float t = possibleSolution.x;
-    //         float u = possibleSolution.y;
-    //         float v = possibleSolution.z;
-    //         /*
-    //                 [p1]
-
-    //                 r       [p2]
-
-    //         [p0]
-    //         r = p0 + u * (p1 - p0) + v * (p2 - p0)
-    //         */
-    //         //--------------------
-    //         // (u >= 0.0) && (u <= 1.0)
-    //         // (v >= 0.0) && (v <= 1.0)
-    //         // (u + v) <= 1.0
-    //         //--------------------
-    //         // position = startpoint + scalar * direction
-    //         if (((u >= 0.0) && (u <= 1.0)) && ((v >= 0.0) && (v <= 1.0)) && ((u + v) <= 1.0)) { // validation process
-    //             if ((rayTriangle.distanceFromCamera > t) && (t > 0)) {
-    //                 rayTriangle.distanceFromCamera = t;
-    //                 rayTriangle.intersectedTriangle = vecModel[i];
-    //                 rayTriangle.triangleIndex = i;
-    //                 glm::vec3 intersection = vecModel[i].vertices[0] + u * e0 + v * e1;
-    //                 rayTriangle.intersectionPoint = intersection;
-    //             }
-    //         }
-    //     }
-    //     return rayTriangle;
-    // }
-    // bool isShadow(RayTriangleIntersection rayTriangle, std::vector<ModelTriangle> vecModel) {
-    //     // (0.0, 0.8, 0.0) - (x, y, z)
-    //     glm::vec3 shadowRay = lightPosition - rayTriangle.intersectionPoint; // light - intersection point
-    //     for (size_t i = 0; i < vecModel.size(); i++) {
-
-    //         glm::vec3 e0 = vecModel[i].vertices[1] - vecModel[i].vertices[0];
-    //         glm::vec3 e1 = vecModel[i].vertices[2] - vecModel[i].vertices[0];
-    //         glm::vec3 SPVector = rayTriangle.intersectionPoint - vecModel[i].vertices[0];
-    //         glm::mat3 DEMatrix(-glm::normalize(shadowRay), e0, e1); // (-ray, e0, e1)
-    //         glm::vec3 possibleSolution = glm::inverse(DEMatrix) * SPVector; // distance along ray and the coords on the triangle
-    //         float t = possibleSolution.x;
-    //         float u = possibleSolution.y;
-    //         float v = possibleSolution.z;
-
-    //         if (((u >= 0.0) && (u <= 1.0)) && ((v >= 0.0) && (v <= 1.0)) && ((u + v) <= 1.0)) { // validation process
-    //             if ((t < glm::length(shadowRay)) && (t > 0.01) && (i != rayTriangle.triangleIndex)) { // light intersects with canvas
-    //                 return true;
-    //             }
-    //         }
-    //     }
-    //     return false;
-    // }
-    // void drawRayTrace(DrawingWindow& window, std::vector<ModelTriangle> vecModel) {
-    //     for (size_t y = 0; y < window.height; y++) {
-    //         for (size_t x = 0; x < window.width; x++) {
-    //             /* Index:
-    //             [x] [y] [focalLength]
-    //             rayDirection = -x, y, focalLength
-    //             */
-    //             glm::vec3 rayDirection = glm::vec3(-(x - HALFWIDTH), y - HALFHEIGHT, focalLength);
-    //             RayTriangleIntersection rayTriangle = getClosestIntersection(cameraPosition, rayDirection, vecModel);
-    //             if (!isinf(rayTriangle.distanceFromCamera)) { // distance from camera is not infinite
-    //                 if (isShadow(rayTriangle, vecModel)) { // isShadow(rayTriangle, vecModel) == true
-    //                     // Dark shadow
-    //                     uint32_t colour = (255 << 24) + (0 << 16) + (0 << 8) + 0; // Alpha + Red + Green + Blue
-    //                     // size_t stdX = std::round(x);
-    //                     // size_t stdY = std::round(y);
-    //                     // if ((stdX < WIDTH) && (stdY < HEIGHT)) { // Fix the range
-    //                     //     window.setPixelColour(stdX, stdY, colour);
-    //                     // }
-    //                     window.setPixelColour(x, y, colour);
-    //                 } else { // isShadow(rayTriangle, vecModel) != true
-    //                     // Normal rasterised render output...
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
     /*
-    In ray trace task, it simulates the physical phenomenon.
-    All scene we see is a reflection of light. Light carries colour,
-    and it reflects to human eyes.
+    In ray trace task, it simulates the physical phenomenon of light reflection & light diffraction.
+    All scene we see is a reflection of light. Light carries colour, and it reflects to human eyes.
     1. Find ray direction from camera/eye to the canvas. Inverse to getCanvasIntersectionPoint.
     2. Find the intersection point between camera and canvas.
     3. According to triangles of intersection point, draw it on the canvas.
     */
+
+    std::vector<ModelTriangle> getModelTriangle(std::vector<glm::vec3> vertices, std::vector<std::size_t> faces, std::vector<ModelTriangle> vecModel, Colour c) {
+        for (size_t i = 0; i < faces.size(); i+=3) { // 96 / 3 = 32
+            glm::vec3 f1 = vertices[faces[i] - 1];
+            glm::vec3 f2 = vertices[faces[i + 1] - 1];
+            glm::vec3 f3 = vertices[faces[i + 2] - 1];
+            vecModel.push_back(ModelTriangle(f1, f2, f3, c));
+        }
+        return vecModel; // [0] - [31]
+    }
+    std::vector<ModelTriangle> readOBJ(std::vector<ModelTriangle> vecModel) {
+        std::ifstream inputStream(OBJfilename);
+        std::string nextLine;
+        std::vector<glm::vec3> vertices;
+        std::vector<std::size_t> faces;
+        Colour c;
+        // If OBJ file load failed
+        if (!inputStream.is_open()) {
+            std::cerr << "Failed to open OBJ file!" << std::endl;
+        }
+        // Use a while loop together with the getline() function to read the file line by line
+        while (std::getline(inputStream, nextLine)) {
+            auto line = split(nextLine, ' '); // std::vector<std::string>
+            for (size_t i = 0; i < line.size(); i++) { // iterate all line to locate line[i]
+                if (line[i] == "v") { // 0
+                    glm::vec3 tmp;
+                    tmp.x = std::stof(line[i+1]) * 0.35; // 1
+                    tmp.y = std::stof(line[i+2]) * 0.35; // 2
+                    tmp.z = std::stof(line[i+3]) * 0.35; // 3
+                    vertices.push_back(tmp);
+                }
+                if (line[i] == "f") { // 0
+                    std::size_t tmp_1;
+                    std::size_t tmp_2;
+                    std::size_t tmp_3;
+                    tmp_1 = std::stoi(line[i+1]); // 1
+                    tmp_2 = std::stoi(line[i+2]); // 2
+                    tmp_3 = std::stoi(line[i+3]); // 3
+                    faces.push_back(tmp_1);
+                    faces.push_back(tmp_2);
+                    faces.push_back(tmp_3);
+                }
+            }
+        }
+        // Update vecModel
+        vecModel = getModelTriangle(vertices, faces, vecModel, c);
+        // Hardcoding to insert colour name inside ModelTriangle...
+        vecModel[0].colour.name = "White";
+        vecModel[1].colour.name = "White";
+        vecModel[2].colour.name = "Grey";
+        vecModel[3].colour.name = "Grey";
+        vecModel[4].colour.name = "Cyan";
+        vecModel[5].colour.name = "Cyan";
+        vecModel[6].colour.name = "Green";
+        vecModel[7].colour.name = "Green";
+        vecModel[8].colour.name = "Magenta";
+        vecModel[9].colour.name = "Magenta";
+        vecModel[10].colour.name = "Yellow";
+        vecModel[11].colour.name = "Yellow";
+        for (size_t i = 12; i < 22; i++) {
+            vecModel[i].colour.name = "Red";
+        }
+        for (size_t i = 22; i < vecModel.size(); i++) {
+            vecModel[i].colour.name = "Blue";
+        }
+        // Close the file
+        inputStream.close();
+        return vecModel;
+    }
+    // std::unordered_map<std::string, uint32_t> myMap
+    std::unordered_map<std::string, std::vector<float>> readMTL(std::unordered_map<std::string, std::vector<float>> myMap) {
+        std::ifstream inputStream(MTLfilename);
+        std::string nextLine;
+        std::vector<float> colourBoard;
+        std::vector<std::string> colourName;
+        // If MTL file load failed
+        if (!inputStream.is_open()) {
+            std::cerr << "Failed to open MTL file!" << std::endl;
+        }
+        // Use a while loop together with the getline() function to read the file line by line
+        while (std::getline(inputStream, nextLine)) {
+            auto line = split(nextLine, ' '); // std::vector<std::string>
+            for (size_t i = 0; i < line.size(); i++) {
+                if (line[i] == "newmtl") { // 0
+                    colourName.push_back(line[i+1]); // 1
+                }
+                if (line[i] == "Kd") { // 0
+                    colourBoard.push_back(std::stof(line[i+1]) * 255); // 1
+                    colourBoard.push_back(std::stof(line[i+2]) * 255); // 2
+                    colourBoard.push_back(std::stof(line[i+3]) * 255); // 3
+                }
+            }
+        }
+        // Insert index and corresponding colour into the hashmap
+        for (size_t i = 0; i < colourName.size(); i++) {
+            for (size_t j = i * 3; j < (i * 3) + 3; j+=3) {
+                // uint32_t colour = (255 << 24) + (int(colourBoard[j]) << 16) + (int(colourBoard[j+1]) << 8) + int(colourBoard[j+2]);
+                // myMap[colourName[i]] = colour;
+                myMap[colourName[i]] = {colourBoard[j], colourBoard[j+1], colourBoard[j+2]};
+            }
+        }
+        // Close the file
+        inputStream.close();
+        return myMap;
+    }
+    std::vector<ModelTriangle> updateModelTriangleColour(std::unordered_map<std::string, std::vector<float>> myMap, std::vector<ModelTriangle> vecModel) {
+        for (size_t i = 0; i < vecModel.size(); i++) {
+            for (auto pair : myMap) { // const auto& pair : myMap
+                if (vecModel[i].colour.name == pair.first) { // Colour name matched
+                    // Insert RGB value into colour
+                    vecModel[i].colour.red = int(pair.second[0]);
+                    vecModel[i].colour.green = int(pair.second[1]);
+                    vecModel[i].colour.blue = int(pair.second[2]);
+                }
+            }
+        }
+        return vecModel;
+    }
+    glm::vec3 getRayDirection(glm::vec3 cameraPosition, size_t y, size_t x) {
+        // Reverse implementation function of getCanvasIntersectionPoint(glm::vec3 cameraPosition, glm::vec3 vertexPosition, float focalLength) function
+        // But... it iterates all pixels of canvas, which means it loops through all pixels of canvas...
+        // In this function, we need to find out the actual position of vertex, instead of canvas point
+        CanvasPoint point;
+        point.y = y;
+        point.x = x;
+        point.depth = 1.0f; // Assign the depth to 1: Buffer [0] to [1] (normalise) (top)
+        glm::vec3 vertexPosition;
+        // x: positive, y: negative (inverse implementation)
+        vertexPosition.x = ((point.x - HALFWIDTH) / (80 * focalLength)) * point.depth; // Reverse formula
+        vertexPosition.y = - ((point.y - HALFHEIGHT) / (80 * focalLength)) * point.depth; // Reverse formula
+        vertexPosition.z = 0.0f * point.depth; // Initial value of z: 0.0f, reverse formula
+        vertexPosition = vertexPosition - cameraPosition;
+        vertexPosition = glm::normalize(vertexPosition); // Normalise to stabilise the range between 0 and 1
+        return vertexPosition;
+    }
+    RayTriangleIntersection getClosestValidIntersection(glm::vec3 cameraPosition, glm::vec3 rayDirection, ModelTriangle triangle) {
+        RayTriangleIntersection rayTriangle;
+        return rayTriangle;
+    }
+    RayTriangleIntersection verifyClosestValidIntersection(glm::vec3 cameraPosition, glm::vec3 rayDirection, std::vector<ModelTriangle> vecModel) {
+        RayTriangleIntersection rayTriangle;
+        return rayTriangle;
+    }
+    void drawRayTrace(DrawingWindow& window, std::vector<ModelTriangle> vecModel) {
+        for (size_t y = 0; y < window.height; y++) {
+            for (size_t x = 0; x < window.width; x++) {
+                // Draw ray trace scene test
+            }
+        }
+    }
+    void drawRasterisedSceneRayTrace(DrawingWindow& window) {
+        std::unordered_map<std::string, std::vector<float>> myMap;
+        std::vector<ModelTriangle> vecModel; // 32
+        myMap = readMTL(myMap); // Read MTL file
+        vecModel = readOBJ(vecModel); // Read OBJ file
+        vecModel = updateModelTriangleColour(myMap, vecModel); // Map colour to vecModel
+        std::cout << "Test ray trace is starting" << std::endl;
+        drawRayTrace(window, vecModel);
+        std::cout << "Test ray trace is completed" << std::endl;
+    }
+
 };
 
 #endif

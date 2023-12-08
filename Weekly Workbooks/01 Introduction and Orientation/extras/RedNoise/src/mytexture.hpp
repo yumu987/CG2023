@@ -31,6 +31,27 @@
 
 class MyTexture {
 public:
+    void drawLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
+        float xDiff = to.x - from.x;
+        float yDiff = to.y - from.y;
+        float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
+        float xStepSize = xDiff / numberOfSteps;
+        float yStepSize = yDiff / numberOfSteps;
+        uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
+        for (float i = 0.0; i < numberOfSteps; i++) {
+            float x = from.x + (xStepSize * i);
+            float y = from.y + (yStepSize * i);
+            window.setPixelColour(x, y, colour);
+        }
+    }
+    void drawWhiteEdgeTriangle(DrawingWindow& window, CanvasTriangle triangle, Colour c) {
+        c.red = 255;
+        c.green = 255;
+        c.blue = 255;
+        drawLine(window, triangle.v0(), triangle.v1(), c);
+        drawLine(window, triangle.v1(), triangle.v2(), c);
+        drawLine(window, triangle.v2(), triangle.v0(), c);
+    }
     CanvasPoint interpolateLine(CanvasPoint from, CanvasPoint to, CanvasPoint extra) {
         // Line equation: y = mx + b
         float xDiff = to.x - from.x;
@@ -40,34 +61,14 @@ public:
         if (xDiff == 0) { // Slope is 0
             extra.x = to.x; // extra.x = from.x
         } else if (yDiff == 0) { // Slope is 0
-            extra.x = to.x;
+            extra.x = to.x; // extra.x = from.x
         } else if (xDiff == 0 && yDiff == 0) { // Slope is both 0
-            extra.x = to.x;
+            extra.x = to.x; // extra.x = from.x
         } else { // xDiff != 0 && yDiff != 0
             extra.x = (extra.y - b) / m;
         }
         return extra;
     }
-
-    // Week 04 Debug
-    void checkLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, Colour c) {
-        float xDiff = to.x - from.x;
-        float yDiff = to.y - from.y;
-        float numberOfSteps = fmax(abs(xDiff), abs(yDiff));
-        float xStepSize = xDiff / numberOfSteps;
-        float yStepSize = yDiff / numberOfSteps;
-        c.red = 255;
-        c.green = 255;
-        c.blue = 255;
-        uint32_t colour = (255 << 24) + (c.red << 16) + (c.green << 8) + c.blue; // Pack colour into uint32_t package
-        for (float i = 0.0; i < numberOfSteps; i++) {
-            float x = from.x + (xStepSize * i);
-            float y = from.y + (yStepSize * i);
-            window.setPixelColour(x, y, colour);
-        }
-    }
-
-    // Week 03 Texture Mapping
     std::vector<CanvasPoint> interpolationCanvasPoint(CanvasPoint from, CanvasPoint to, int numberOfSteps) {
         std::vector<CanvasPoint> coordinates;
 
@@ -96,8 +97,6 @@ public:
 
         return coordinates;
     }
-
-    // Week 03 Texture Mapping
     void drawTextureLine(DrawingWindow& window, CanvasPoint from, CanvasPoint to, TextureMap textMap) {
         /*
         Notes for triangle's texture mapping:
@@ -131,8 +130,6 @@ public:
             window.setPixelColour(canvasCoordinates[i].x, canvasCoordinates[i].y, textMap.pixels[(canvasCoordinates[i].texturePoint.y * textMap.height) + canvasCoordinates[i].texturePoint.x]); // textMap.width
         }
     }
-
-    // Week 03 Texture Mapping
     CanvasTriangle generateVisualVerificationVertices(CanvasTriangle triangle) { // Debug function
         triangle.v0().x = 160;
         triangle.v0().y = 10;
@@ -142,8 +139,6 @@ public:
         triangle.v2().y = 150;
         return triangle;
     }
-
-    // Week 03 Texture Mapping
     TexturePoint interpolateTextureLine(TexturePoint from, TexturePoint to, TexturePoint extra) {
         // Line equation: y = mx + b
         float xDiff = to.x - from.x;
@@ -151,24 +146,19 @@ public:
         float m = yDiff / xDiff;
         float b = to.y - (m * to.x);
         if (xDiff == 0) { // Slope is 0
-            std::cout << "xDiff == 0 interpolateTextureLine" << std::endl;
             extra.x = to.x; // extra.x = from.x
         }
         else if (yDiff == 0) { // Slope is 0
-            std::cout << "yDiff == 0 interpolateTextureLine" << std::endl;
-            extra.x = to.x;
+            extra.x = to.x; // extra.x = from.x
         }
         else if (xDiff == 0 && yDiff == 0) { // Slope is both 0
-            std::cout << "xDiff == 0 && yDiff == 0 interpolateTextureLine" << std::endl;
-            extra.x = to.x;
+            extra.x = to.x; // extra.x = from.x
         }
         else { // xDiff != 0 && yDiff != 0
             extra.x = (extra.y - b) / m;
         }
         return extra;
     }
-
-    // Week 03 Texture Mapping
     void fillTopTextureTriangle(DrawingWindow& window, CanvasPoint top, CanvasPoint middle, CanvasPoint extra, TextureMap textMap) {
         std::vector<CanvasPoint> firstLine;
         firstLine = interpolationCanvasPoint(top, middle, std::round(middle.y - top.y));
@@ -180,8 +170,6 @@ public:
             drawTextureLine(window, firstLine[i], secondLine[i], textMap);
         }
     }
-
-    // Week 03 Texture Mapping
     void fillBottomTextureTriangle(DrawingWindow& window, CanvasPoint bottom, CanvasPoint middle, CanvasPoint extra, TextureMap textMap) {
         std::vector<CanvasPoint> firstLine;
         firstLine = interpolationCanvasPoint(middle, bottom, std::round(bottom.y - middle.y));
@@ -193,8 +181,6 @@ public:
             drawTextureLine(window, firstLine[i], secondLine[i], textMap);
         }
     }
-
-    // Week 03 Texture Mapping
     CanvasTriangle bubbleSort(CanvasTriangle triangle) {
         /*
         [v0]: top
@@ -214,8 +200,6 @@ public:
         }
         return triangle;
     }
-
-    // Week 03 Texture Mapping
     std::vector<CanvasPoint> mapPoint(CanvasPoint v0, CanvasPoint v1, CanvasPoint v2) {
         std::vector<CanvasPoint> canVector;
         // CanvasPoint initialisation
@@ -244,8 +228,6 @@ public:
         canVector.push_back(v2);
         return canVector;
     }
-
-    // Week 03 Texture Mapping
     void fillTexture(DrawingWindow& window, CanvasTriangle textureTriangle, TextureMap textMap) {
         // Initialisation of points and sorting algorithm
         CanvasPoint v0;
@@ -287,7 +269,17 @@ public:
         // Draw bottom
         fillBottomTextureTriangle(window, textureTriangle.v2(), textureTriangle.v1(), extra, textMap); // Bottom point, middle point and extra
     }
-
+    void drawTexture(DrawingWindow& window) {
+        CanvasTriangle triangle; // Debug triangle for white edge
+        Colour c; // Debug colour
+        CanvasTriangle textureTriangle;
+        TextureMap textMap = TextureMap("texture.ppm"); // Load texture.ppm
+        fillTexture(window, textureTriangle, textMap);
+        // Debug white edge below to ensure texture is correct
+        triangle = generateVisualVerificationVertices(triangle);
+        triangle = bubbleSort(triangle);
+        drawWhiteEdgeTriangle(window, triangle, c);
+    }
 };
 
 #endif

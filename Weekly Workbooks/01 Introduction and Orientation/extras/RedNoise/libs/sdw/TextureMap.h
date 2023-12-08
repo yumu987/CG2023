@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdexcept>
 #include "Utils.h"
+// #include <stdint.h>
 
 class TextureMap {
 public:
