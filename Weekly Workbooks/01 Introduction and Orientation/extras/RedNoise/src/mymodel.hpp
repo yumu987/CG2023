@@ -870,15 +870,12 @@ public:
         point.depth = 1.0f; // Assign the depth to 1: Buffer [0] to [1] (normalise) (top)
         glm::vec3 vertexPosition;
 
-        cameraPosition = cameraPosition * cameraOrientation; // Camera moves towards left...
-
         // x: positive, y: negative (inverse implementation)
-        vertexPosition.x = (((point.x - HALFWIDTH) / (40 * focalLength)) * point.depth) - (cameraPosition.x); // Reverse formula
-        vertexPosition.y = (- ((point.y - HALFHEIGHT) / (40 * focalLength)) * point.depth) - (cameraPosition.y); // Reverse formula
-        vertexPosition.z = (0.0f * point.depth) - (cameraPosition.z); // Initial value of z: 0.0f, reverse formula
-        vertexPosition = glm::normalize(vertexPosition); // Normalise to stabilise the range between 0 and 1
-
-        // vertexPosition = vertexPosition * cameraOrientation;
+        vertexPosition.x = (((point.x - HALFWIDTH) / (160 * focalLength))); // Reverse formula
+        vertexPosition.y = (- ((point.y - HALFHEIGHT) / (160 * focalLength))); // Reverse formula
+        vertexPosition.z = -1; // -1 means invalid
+        // Apply cameraOrientation * vertexPosition formula
+        vertexPosition = glm::normalize(cameraOrientation * vertexPosition); // Normalise to stabilise the range between 0 and 1
 
         return vertexPosition;
     }
